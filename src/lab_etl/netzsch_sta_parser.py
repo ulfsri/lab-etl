@@ -74,6 +74,7 @@ def get_sta_metadata(
                     key.strip().lower().replace(" ", "_")
                 )  # convert key to lowercase and replace spaces with underscores (snake_case)
                 key_mapping = {
+                    "exporttype": "export_type",
                     "remark": "comment",
                     "type_of_crucible": "crucible_type",
                     "tempcal": "temperature_calibration",
@@ -82,6 +83,8 @@ def get_sta_metadata(
                     "ftype": "file_type",
                     "mtype": "measurement_type",
                     "corr._code": "correction_code",
+                    "exo": "exothermic",
+                    "separator": "delimiter",
                 }
                 key = key_mapping.get(key, key)
                 value = value.strip(", \n")
@@ -325,6 +328,7 @@ if __name__ == "__main__":
         else v.decode("utf-8")
         for k, v in df.schema.metadata.items()
     }
+    print(metadata)
     pq.write_table(
         df,
         "tests/test_files/STA/DF_FILED_DES_STA_N2_10K_231028_R1.parquet",
