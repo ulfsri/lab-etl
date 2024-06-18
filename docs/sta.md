@@ -13,20 +13,6 @@ The files generally consists of two main sections: the header and the data.
 The header section contains metadata about the file, such as the date performed, sample information, calibration information, etc. This is the primary section acted on by these scripts because they are frequently slightly different between manufacturers and contain different amounts and types of information. In many cases these differing field names correspond to the same information and it is the purpose of these scripts to, when possible, consolidate these fields under one title. This is the information which is contained in the file-wide metadata associated with the output Parquet files.
 
 #### Netzsch Header
-
-Here are the commonly found metadata fields in the Netzsch instrument file header:
-
-# STA File Schema
-
-This documentation provides an overview of the schema used in STA files. Different manufacturers have slightly different formats with many similarities. Here, we will describe the data format used by many manufacturers, and how we integrate that into a unified schema that is produced in the output Parquet file.
-
-## File Structure
-Many, if not all, manufacturers collect data in proprietary file formats which cannot be easily accessed by external programs. Fortunately, or perhaps necessarily, manufacturers provide output from their proprietary programs into a more user-friendly format. These are often text-based files in the format of '.txt' or '.csv' that contain columns delimited by some character. The files generally consist of two main sections: the header and the data.
-
-### Header
-The header section contains metadata about the file, such as the date performed, sample information, calibration information, etc. This is the primary section acted on by these scripts because they are frequently slightly different between manufacturers and contain different amounts and types of information. In many cases, these differing field names correspond to the same information, and it is the purpose of these scripts to, when possible, consolidate these fields under one title. This is the information which is contained in the file-wide metadata associated with the output Parquet files.
-
-#### Netzsch Header
 Here are the commonly found metadata fields in the Netzsch instrument file header:
 
 | Original Name         | Metadata Name | Description | Example |
