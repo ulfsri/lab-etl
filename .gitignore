@@ -7,7 +7,7 @@ __pycache__/
 *.so
 
 # Output files
-.parquet
+*.parquet
 
 # Distribution / packaging
 .Python
