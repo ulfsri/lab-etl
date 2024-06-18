@@ -48,20 +48,17 @@ def get_mcc_metadata(
 ) -> dict[str, str | float | dict[str, str | float]]:
     """Get the metadata of a STA file.
 
-    TODO: Need to deal with range. See validation files as well because it has a different format.
-
     Args:
-        path (str): The path to the STA file.
+        path (str): The path to the MCC file.
         encoding (str): The encoding of the file.
         header_loc (int): The index of the last line of the header in the file.
 
     Returns:
-        dict[str, str]: A dictionary with the metadata of the STA file.
+        dict[str, str]: A dictionary with the metadata of the MCC file.
     """
     metadata: dict[str, str | float | dict[str, str | float]] = {}
-    hash = hashlib.blake2b(
-        open(path, "rb").read()
-    ).hexdigest()  # hash the original file to store in metadata
+    with open(path, "rb") as c:
+        hash = hashlib.blake2b(c.read()).hexdigest()  # hash the original file to store in metadata
     with open(path, "r", encoding=encoding) as c:
         lines = c.readlines()
         for i, line in enumerate(lines):
@@ -138,7 +135,7 @@ def get_mcc_metadata(
                 continue
             key_mapping = {
                 "sample_weight": "sample_mass",
-                "combuster_temp": "combuster_temperature",
+                "combustor_temp": "combustor_temperature",
                 "calibration_file": "temperature_calibration",
             }
             key = key_mapping.get(key, key)
@@ -192,10 +189,10 @@ def split_mcc_header(header: list[str]) -> tuple[list[str], list[str | None]]:
     for col in header:
         if " (" in col:
             col, unit = col.split(" (", 1)  # Split at the first instance of "/"
-            cols.append(col)
-            units.append(unit[:-1])
+            cols.append(col.strip())
+            units.append(unit[:-1].strip())
         else:
-            cols.append(col)
+            cols.append(col.strip())
             units.append(None)
     return (cols, units)
 
@@ -233,7 +230,12 @@ def set_metadata(tbl, col_meta={}, tbl_meta={}) -> pa.Table:
                 # Get updated column metadata
                 metadata = tbl.field(col).metadata or {}
                 for k, v in col_meta[col].items():
-                    metadata[k] = json.dumps(v).encode("utf-8")
+                    if isinstance(v, bytes):
+                        metadata[k] = v
+                    elif isinstance(v, str):
+                        metadata[k] = v.encode("utf-8")
+                    else:
+                        metadata[k] = json.dumps(v).encode("utf-8")
                 # Update field with updated metadata
                 fields.append(tbl.field(col).with_metadata(metadata))
             else:

@@ -60,9 +60,8 @@ def get_sta_metadata(
         dict[str, str]: A dictionary with the metadata of the STA file.
     """
     metadata: dict[str, str | float | dict[str, str | float]] = {}
-    hash = hashlib.blake2b(
-        open(path, "rb").read()
-    ).hexdigest()  # hash the original csv file to store in metadata
+    with open(path, "rb") as c:
+        hash = hashlib.blake2b(c.read()).hexdigest()  # hash the original file to store in metadata
     with open(path, "r", encoding=encoding) as c:
         lines = c.readlines()
         for i, line in enumerate(lines):
@@ -245,10 +244,10 @@ def split_sta_header(header: list[str]) -> tuple[list[str], list[str | None]]:
     for col in header:
         if "/" in col:
             col, unit = col.split("/", 1)  # Split at the first instance of "/"
-            cols.append(col)
-            units.append(unit)
+            cols.append(col.strip())
+            units.append(unit.strip())
         else:
-            cols.append(col)
+            cols.append(col.strip())
             units.append(None)
     for i in range(len(cols)):
         if cols[i] in mapping:
@@ -292,7 +291,12 @@ def set_metadata(tbl, col_meta={}, tbl_meta={}) -> pa.Table:
                 # Get updated column metadata
                 metadata = tbl.field(col).metadata or {}
                 for k, v in col_meta[col].items():
-                    metadata[k] = json.dumps(v).encode("utf-8")
+                    if isinstance(v, bytes):
+                        metadata[k] = v
+                    elif isinstance(v, str):
+                        metadata[k] = v.encode("utf-8")
+                    else:
+                        metadata[k] = json.dumps(v).encode("utf-8")
                 # Update field with updated metadata
                 fields.append(tbl.field(col).with_metadata(metadata))
             else:
@@ -328,7 +332,6 @@ if __name__ == "__main__":
         else v.decode("utf-8")
         for k, v in df.schema.metadata.items()
     }
-    print(metadata)
     pq.write_table(
         df,
         "tests/test_files/STA/DF_FILED_DES_STA_N2_10K_231028_R1.parquet",
