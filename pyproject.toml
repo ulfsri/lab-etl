@@ -50,6 +50,12 @@ extra-dependencies = [
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/lab_etl tests}"
 
+[tool.hatch.envs.docs]
+extra-dependencies = [
+  "mkdocs-material>=9.5.27",
+  "mkdocstrings[python]>=0.25.1"
+]
+
 [tool.coverage.run]
 source_pkgs = ["lab_etl", "tests"]
 branch = true
