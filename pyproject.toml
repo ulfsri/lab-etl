@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lab-etl"
+dynamic = ["version"]
+description = 'ETL system for interpreting laboratory instrument data files and loading them into a standardized format while enforcing schema and retaining all metadata.'
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "GraysonBellamy", email = "grayson.bellamy@ul.org" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://github.com/ulfsri/lab-etl#readme"
+Issues = "https://github.com/ulfsri/lab-etl/issues"
+Source = "https://github.com/ulfsri/lab-etl"
+
+[tool.hatch.version]
+path = "src/lab_etl/__about__.py"
+
+[tool.hatch.envs.default]
+installer = "uv"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.10.0",
+  "pre-commit>=3.7.1",
+  "ruff>=0.4.9",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/lab_etl tests}"
+
+[tool.coverage.run]
+source_pkgs = ["lab_etl", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/lab_etl/__about__.py",
+]
+
+[tool.coverage.paths]
+lab_etl = ["src/lab_etl", "*/lab-etl/src/lab_etl"]
+tests = ["tests", "*/lab-etl/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
