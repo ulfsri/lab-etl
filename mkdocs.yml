@@ -1,4 +1,4 @@
-site_name: ""
+site_name: "Laboratory ETL Documentation"
 
 theme:
   name: material
@@ -40,6 +40,7 @@ plugins:
 - mkdocstrings
 nav:
   - Home: index.md
+  - STA: sta.md
 
 markdown_extensions:
   - pymdownx.highlight:
