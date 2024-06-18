@@ -24,7 +24,11 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "python-magic>=0.4.27",
+  "pyarrow>=16.1.0",
+  "python-dateutil>=2.9.0",
+]
 
 [project.urls]
 Documentation = "https://github.com/ulfsri/lab-etl#readme"
