@@ -234,14 +234,14 @@ def extract_hfm_data(meta: dict[Any, Any]) -> pa.Table:
     if meta["type"] == "conductivity":
         col_units = {
             'upper_temperature': {"units":units[0][0]},
-            'lower_temperature': {"units":units[1][0]},
-            'upper_conductivity': {"units":units[2][0]},
-            'lower_conductivity': {"units":units[3][0]}
+            'lower_temperature': {"units":units[0][1]},
+            'upper_conductivity': {"units":units[0][2]},
+            'lower_conductivity': {"units":units[0][3]}
         }
     elif meta["type"] == "specific_heat":
         col_units = {
             'average_temperature': {"units":units[0][0]},
-            'specific_heat': {"units":units[1][0]}
+            'specific_heat': {"units":units[0][1]}
         }
     table = set_metadata(table, col_meta=col_units)
     return table
@@ -250,6 +250,6 @@ def extract_hfm_data(meta: dict[Any, Any]) -> pa.Table:
 
 
 if __name__ == '__main__':
-    path = "tests/test_files/HFM/Black_PMMA_HFM_Dry_conductivity_211115_R1.tst"
+    path = "tests/test_files/HFM/Black_PMMA_HFM_Dry_heatcapacity_211117_R3.tst"
     df = load_hfm_data(path)
     print(df)
