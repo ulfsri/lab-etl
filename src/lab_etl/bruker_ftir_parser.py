@@ -4,8 +4,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from typing import Any
 import numpy as np
-import json
 from brukeropus.file import get_param_label
+from lab_etl.util import set_metadata
 
 
 def load_ftir_data(file_path: str) -> pa.Table:
@@ -25,6 +25,9 @@ def load_ftir_data(file_path: str) -> pa.Table:
             "Reflectance": {"unit": "a.u."},
             "Absorbance": {"unit": "a.u."},
             "Transmittance": {"unit": "a.u."},
+            "Reference Spectrum": {"unit": "a.u."},
+            "Sample Spectrum": {"unit": "a.u."},
+            "Sample Phase": {"unit": "a.u."},
         }
         tbl_meta = get_ftir_meta(opus_file)
         table = set_metadata(table, col_meta=col_meta, tbl_meta=tbl_meta)
@@ -43,29 +46,57 @@ def get_ftir_data(file: OPUSFile) -> pa.Table:
         pa.Table: The FTIR data as a pa.Table.
     """
     data = []
+    schema_list = []
     if "r" in file.all_data_keys:
         data = [
             np.float64(file.r.wl),  # Wavelength
             np.float64(file.r.y),  # Reflectance
         ]
-        schema = pa.schema(
-            [pa.field("Wavelength", pa.float64()), pa.field(file.r.label, pa.float64())]
-        )
+        schema_list = [
+            pa.field("Wavelength", pa.float64()),
+            pa.field(file.r.label, pa.float64()),
+        ]
+        for key in file.all_data_keys:
+            if key != "r":
+                x = np.float64(getattr(file, key).wl)
+                y = np.float64(getattr(file, key).y)
+                y_new = np.interp(file.r.wl, x, y)
+                data.append(y_new)
+                schema_list.append(pa.field(getattr(file, key).label, pa.float64()))
+        schema = pa.schema(schema_list)
         return pa.Table.from_arrays(data, schema=schema)
     elif "a" in file.all_data_keys:
         data = [
             np.float64(file.a.wl),  # Wavelength
             np.float64(file.a.y),  # Absorbance
         ]
-        schema = pa.schema(
-            [pa.field("Wavelength", pa.float64()), pa.field(file.a.label, pa.float64())]
-        )
+        schema_list = [
+            pa.field("Wavelength", pa.float64()),
+            pa.field(file.a.label, pa.float64()),
+        ]
+        for key in file.all_data_keys:
+            if key != "a":
+                x = np.float64(getattr(file, key).wl)
+                y = np.float64(getattr(file, key).y)
+                y_new = np.interp(file.a.wl, x, y)
+                data.append(y_new)
+                schema_list.append(pa.field(getattr(file, key).label, pa.float64()))
+        schema = pa.schema(schema_list)
         return pa.Table.from_arrays(data, schema=schema)
     elif "t" in file.all_data_keys:
         data = [np.float64(file.t.wl), np.float64(file.t.y)]
-        schema = pa.schema(
-            [pa.field("Wavelength", pa.float64()), pa.field(file.t.label, pa.float64())]
-        )
+        schema_list = [
+            pa.field("Wavelength", pa.float64()),
+            pa.field(file.t.label, pa.float64()),
+        ]
+        for key in file.all_data_keys:
+            if key != "t":
+                x = np.float64(getattr(file, key).wl)
+                y = np.float64(getattr(file, key).y)
+                y_new = np.interp(file.t.wl, x, y)
+                data.append(y_new)
+                schema_list.append(pa.field(getattr(file, key).label, pa.float64()))
+        schema = pa.schema(schema_list)
         return pa.Table.from_arrays(data, schema=schema)
 
 
@@ -102,77 +133,14 @@ def get_ftir_meta(file: OPUSFile) -> dict[Any, Any]:
     return meta
 
 
-def set_metadata(tbl, col_meta={}, tbl_meta={}) -> pa.Table:
-    """Store table- and column-level metadata as json-encoded byte strings.
-
-    Provided by: https://stackoverflow.com/a/69553667/25195764
-
-    Table-level metadata is stored in the table's schema.
-    Column-level metadata is stored in the table columns' fields.
-
-    To update the metadata, first new fields are created for all columns.
-    Next a schema is created using the new fields and updated table metadata.
-    Finally a new table is created by replacing the old one's schema, but
-    without copying any data.
-
-    Args:
-        tbl (pyarrow.Table): The table to store metadata in
-        col_meta: A json-serializable dictionary with column metadata in the form
-            {
-                'column_1': {'some': 'data', 'value': 1},
-                'column_2': {'more': 'stuff', 'values': [1,2,3]}
-            }
-        tbl_meta: A json-serializable dictionary with table-level metadata.
-
-    Returns:
-        pyarrow.Table: The table with updated metadata
-    """
-    # Create updated column fields with new metadata
-    if col_meta or tbl_meta:
-        fields = []
-        for col in tbl.schema.names:
-            if col in col_meta:
-                # Get updated column metadata
-                metadata = tbl.field(col).metadata or {}
-                for k, v in col_meta[col].items():
-                    if isinstance(v, bytes):
-                        metadata[k] = v
-                    elif isinstance(v, str):
-                        metadata[k] = v.encode("utf-8")
-                    else:
-                        metadata[k] = json.dumps(v).encode("utf-8")
-                # Update field with updated metadata
-                fields.append(tbl.field(col).with_metadata(metadata))
-            else:
-                fields.append(tbl.field(col))
-
-        # Get updated table metadata
-        tbl_metadata = tbl.schema.metadata or {}
-        for k, v in tbl_meta.items():
-            if isinstance(v, bytes):
-                tbl_metadata[k] = v
-            elif isinstance(v, str):
-                tbl_metadata[k] = v.encode("utf-8")
-            else:
-                tbl_metadata[k] = json.dumps(v).encode("utf-8")
-
-        # Create new schema with updated field metadata and updated table metadata
-        schema = pa.schema(fields, metadata=tbl_metadata)
-
-        # With updated schema build new table (shouldn't copy data)
-        # tbl = pa.Table.from_batches(tbl.to_batches(), schema)
-        tbl = tbl.cast(schema)
-
-    return tbl
-
-
 if __name__ == "__main__":
-    # path = "tests/test_files/FTIR/Upper_Fiber_Cement_Board_3.0"
+    path = "tests/test_files/FTIR/Upper_Fiber_Cement_Board_3.0"
     # path = "tests/test_files/FTIR/Bmore_Jacket_CSTM_Stripe_ATR_240517_R2.0"
-    path = (
-        "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.0"
-    )
+    # path = (
+    #     "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.0"
+    # )
     table = load_ftir_data(path)
+    print(table)
     pq.write_table(
         table,
         "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.parquet",
