@@ -85,7 +85,7 @@ def get_mcc_metadata(
             if key.endswith(
                 "(mg)"
             ):  # check if the key ends with "(mg)" and add it to value
-                key = key[:-5]  # remove "/mg" from the end of the key
+                key = key[:-5]  # remove "(mg)" from the end of the key
                 meta_val = {
                     "value": meta_val,
                     "unit": "mg",
