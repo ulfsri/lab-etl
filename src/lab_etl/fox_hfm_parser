@@ -187,6 +187,11 @@ def get_hfm_metadata(path:str, encoding:str="utf-16le"):
                         unit = sub_line.replace(value, "").strip()
                         metadata["setpoints"][f"setpoint_{setpoint}"].update({"specific_heat":{"value":float(value),"unit":unit}})
     metadata.update({"type":type})
+    metadata["file_hash"] = {
+        "file": path.split("/")[-1],
+        "method": "BLAKE2b",
+        "hash": hash,
+    }
     return metadata
 
 def extract_hfm_data(meta: dict[Any, Any]) -> pa.Table:
