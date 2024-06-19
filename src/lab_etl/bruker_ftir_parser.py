@@ -7,13 +7,24 @@ import numpy as np
 import json
 from brukeropus.file import get_param_label
 
+
 def load_ftir_data(file_path: str) -> pa.Table:
+    """Loads FTIR data from an OPUS file and returns it as a pa.Table.
+
+    Args:
+        file_path (str): The path to the OPUS file.
+
+    Returns:
+        pa.Table: The FTIR data as a pa.Table with included metadata.
+    """
     opus_file = read_opus(file_path)
     if bool(opus_file):
         table = get_ftir_data(opus_file)
         col_meta = {
             "Wavelength": {"unit": "µm"},
-            "Reflectance": {"unit": "a.u."}
+            "Reflectance": {"unit": "a.u."},
+            "Absorbance": {"unit": "a.u."},
+            "Transmittance": {"unit": "a.u."},
         }
         tbl_meta = get_ftir_meta(opus_file)
         table = set_metadata(table, col_meta=col_meta, tbl_meta=tbl_meta)
@@ -21,29 +32,75 @@ def load_ftir_data(file_path: str) -> pa.Table:
     else:
         raise ValueError("Not a valid OPUS file")
 
-def get_ftir_data(file: OPUSFile) -> pa.Table:
-    data = []
-    if 'r' in file.all_data_keys: # We are intentionally only looking for reflectance data, other data (sample and reference) get ignored
-        data.append(np.float64(file.r.wl)) # Wavelength
-        data.append(np.float64(file.r.y)) # Reflectance
-        arrays = pa.array(data)
-        schema = pa.schema([pa.field("Wavelength", pa.float64()), pa.field(file.r.label, pa.float64())])
-        return pa.Table.from_arrays(arrays, schema=schema)
 
-def get_ftir_meta(file: OPUSFile) -> dict[str, str | dict[Any, Any]]:
+def get_ftir_data(file: OPUSFile) -> pa.Table:
+    """Retrieves FTIR data from the given OPUSFile object and returns it as a pa.Table.
+
+    Args:
+        file (OPUSFile): The OPUSFile object containing the FTIR data.
+
+    Returns:
+        pa.Table: The FTIR data as a pa.Table.
+    """
+    data = []
+    if "r" in file.all_data_keys:
+        data = [
+            np.float64(file.r.wl),  # Wavelength
+            np.float64(file.r.y),  # Reflectance
+        ]
+        schema = pa.schema(
+            [pa.field("Wavelength", pa.float64()), pa.field(file.r.label, pa.float64())]
+        )
+        return pa.Table.from_arrays(data, schema=schema)
+    elif "a" in file.all_data_keys:
+        data = [
+            np.float64(file.a.wl),  # Wavelength
+            np.float64(file.a.y),  # Absorbance
+        ]
+        schema = pa.schema(
+            [pa.field("Wavelength", pa.float64()), pa.field(file.a.label, pa.float64())]
+        )
+        return pa.Table.from_arrays(data, schema=schema)
+    elif "t" in file.all_data_keys:
+        data = [np.float64(file.t.wl), np.float64(file.t.y)]
+        schema = pa.schema(
+            [pa.field("Wavelength", pa.float64()), pa.field(file.t.label, pa.float64())]
+        )
+        return pa.Table.from_arrays(data, schema=schema)
+
+
+def get_ftir_meta(file: OPUSFile) -> dict[Any, Any]:
+    """
+    Retrieves the metadata from the given OPUSFile object and returns it as a dictionary.
+
+    Args:
+        file (OPUSFile): The OPUSFile object from which to retrieve the metadata.
+
+    Returns:
+        dict[str, str | dict[Any, Any]]: A dictionary containing the metadata.
+
+    """
     meta = {}
-    params = dict(file.params)
-    rf_params = dict(file.rf_params)
-    params = dict((get_param_label(key).lower().replace(" ", "_"), v) for (key, v) in params.items())
-    rf_params = dict((get_param_label(key).lower().replace(" ", "_"), v) for (key, v) in rf_params.items())
-    labels = {}
-    for key in file.iter_all_data():
-        labels.update({key.key: key.label})
+    params = {
+        get_param_label(key).lower().replace(" ", "_"): value
+        for key, value in file.params.items()
+    }
+    rf_params = {
+        get_param_label(key).lower().replace(" ", "_"): value
+        for key, value in file.rf_params.items()
+    }
+    labels = {key.key: key.label for key in file.iter_all_data()}
     meta.update({"data_labels": labels})
-    meta.update({"date_performed": file.r.datetime.isoformat()})
+    if "r" in labels:
+        meta.update({"data_performed": file.r.datetime.isoformat()})
+    elif "a" in labels:
+        meta.update({"data_performed": file.a.datetime.isoformat()})
+    elif "t" in labels:
+        meta.update({"data_performed": file.t.datetime.isoformat()})
     meta.update({"parameters": params})
     meta.update({"reference_parameters": rf_params})
     return meta
+
 
 def set_metadata(tbl, col_meta={}, tbl_meta={}) -> pa.Table:
     """Store table- and column-level metadata as json-encoded byte strings.
@@ -110,9 +167,14 @@ def set_metadata(tbl, col_meta={}, tbl_meta={}) -> pa.Table:
 
 
 if __name__ == "__main__":
-    path = "tests/test_files/FTIR/Upper_Fiber_Cement_Board_3.0"
+    # path = "tests/test_files/FTIR/Upper_Fiber_Cement_Board_3.0"
+    path = "tests/test_files/FTIR/Bmore_Jacket_CSTM_Stripe_ATR_240517_R2.0"
     table = load_ftir_data(path)
-    pq.write_table(table, "tests/test_files/FTIR/Upper_Fiber_Cement_Board_3.0.parquet", compression="snappy")
+    pq.write_table(
+        table,
+        "tests/test_files/FTIR/Bmore_Jacket_CSTM_Stripe_ATR_240517_R2.parquet",
+        compression="snappy",
+    )
     # opus_file = read_opus(path)  # Returns an OPUSFile class
     # opus_file.print_parameters()  # Pretty prints all metadata in the file to the console
     # print(opus_file.data_keys)  # Returns a list of all data keys in the file
