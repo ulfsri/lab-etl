@@ -29,6 +29,8 @@ dependencies = [
   "pyarrow>=16.1.0",
   "python-dateutil>=2.9.0",
   "brukeropus>=1.1.0",
+  "polars>=0.20.31",
+  "fastexcel>=0.10.4",
 ]
 
 [project.urls]
