@@ -19,6 +19,7 @@ def load_hfm_data(path):
     return table
 
 def get_hfm_metadata(path:str, encoding:str="utf-16le"):
+    type = "conductivity" # assume it's thermal conductivity unless we find otherwise
     metadata: dict[str, str | float | dict[str, str | float]] = {}
     with open(path, "rb") as c:
         hash = hashlib.blake2b(c.read()).hexdigest()  # hash the original file to store in metadata
@@ -34,6 +35,15 @@ def get_hfm_metadata(path:str, encoding:str="utf-16le"):
                     pass
             if line.startswith("Sample Name: "):
                 metadata.update({"sample_id":line.split(":")[1].strip()})
+            elif line.startswith("Run Mode"):
+                type = line.split(":")[1].strip().lower().replace(" ", "_")
+            elif line.startswith("Transducer Heat Capacity Coefficients"):
+                if "calibration" not in metadata:
+                    metadata.update({"calibration":{}})
+                sub_line = line.split(":")[1].strip()
+                A = float(re.findall(r"\d+\.\d+",sub_line)[0])
+                B = float(re.findall(r"\d+\.\d+",sub_line)[1])
+                metadata["calibration"].update({"heat_capacity":{"A":A, "B":B}})
             elif line.startswith("Thickness: "):
                 sub_line = line.split(":")[1].strip()
                 value = float(re.findall(r"\d+\.\d+",sub_line)[0])
@@ -82,7 +92,11 @@ def get_hfm_metadata(path:str, encoding:str="utf-16le"):
                 metadata.update({"number_of_transducers":int(line.split(":")[1].strip())})
             elif line.startswith("Number of Setpoints"):
                 metadata.update({"number_of_setpoints":int(line.split(":")[1].strip())})
-                for j in range(i+1, i+1+metadata["number_of_setpoints"]):
+                if type == "conductivity":
+                    offset = 1
+                elif type == "specific_heat":
+                    offset = 0
+                for j in range(i+1, i+offset+metadata["number_of_setpoints"]):
                     if "setpoints" not in metadata:
                         metadata.update({"setpoints":{}})
                     metadata["setpoints"].update({f"setpoint_{j-i}":{}})
@@ -163,40 +177,72 @@ def get_hfm_metadata(path:str, encoding:str="utf-16le"):
                         if "thermal_equilibrium" not in metadata["setpoints"][f"setpoint_{setpoint}"]:
                             metadata["setpoints"][f"setpoint_{setpoint}"].update({"thermal_equilibrium":{}})
                         metadata["setpoints"][f"setpoint_{setpoint}"]["thermal_equilibrium"].update({"calculation_blocks":float(lines[i+j].split(":")[1].strip())})
+                    elif lines[i+j].strip().startswith("Temperature Average"):
+                        value = re.findall(r"\d+\.\d+",lines[i+j].split(":")[1].strip())[0]
+                        unit = re.findall("[^\x00-\x7F]+[a-zA-Z]+",lines[i+j].split(":")[1].strip())[0]
+                        metadata["setpoints"][f"setpoint_{setpoint}"].update({"temperature_average":{"value":float(value),"unit":unit}})
+                    elif lines[i+j].strip().startswith("Specific Heat"):
+                        sub_line = lines[i+j].split(":")[1].strip()
+                        value = re.findall(r"\d+",sub_line)[0]
+                        unit = sub_line.replace(value, "").strip()
+                        metadata["setpoints"][f"setpoint_{setpoint}"].update({"specific_heat":{"value":float(value),"unit":unit}})
+    metadata.update({"type":type})
     return metadata
 
 def extract_hfm_data(meta: dict[Any, Any]) -> pa.Table:
     data = []
     units = []
-    for key, value in meta['setpoints'].items():
-        upper_temp = value['temperature']['upper']['value']
-        upper_temp_unit = value['temperature']['upper']['unit']
-        lower_temp = value['temperature']['lower']['value']
-        lower_temp_unit = value['temperature']['lower']['unit']
-        upper_cond = value['results']['upper']['value']
-        upper_cond_unit = value['results']['upper']['unit']
-        lower_cond = value['results']['lower']['value']
-        lower_cond_unit = value['results']['lower']['unit']
-        data.append([key, upper_temp, lower_temp, upper_cond, lower_cond])
-        units.append([upper_temp_unit, lower_temp_unit, upper_cond_unit, lower_cond_unit])
+    if meta["type"] == "conductivity":
+        for key, value in meta['setpoints'].items():
+            upper_temp = value['temperature']['upper']['value']
+            upper_temp_unit = value['temperature']['upper']['unit']
+            lower_temp = value['temperature']['lower']['value']
+            lower_temp_unit = value['temperature']['lower']['unit']
+            upper_cond = value['results']['upper']['value']
+            upper_cond_unit = value['results']['upper']['unit']
+            lower_cond = value['results']['lower']['value']
+            lower_cond_unit = value['results']['lower']['unit']
+            data.append([key, upper_temp, lower_temp, upper_cond, lower_cond])
+            units.append([upper_temp_unit, lower_temp_unit, upper_cond_unit, lower_cond_unit])
+    elif meta["type"] == "specific_heat":
+        for key, value in meta['setpoints'].items():
+            average_temp = value['temperature_average']['value']
+            average_temp_unit = value['temperature_average']['unit']
+            specific_heat = value['specific_heat']['value']
+            specific_heat_unit = value['specific_heat']['unit']
+            data.append([key, average_temp, specific_heat])
+            units.append([average_temp_unit, specific_heat_unit])
     trans_data = np.transpose(data)
     arrays = []
     for i in range(len(trans_data)):
         arrays.append(pa.array(trans_data[i]))
-    schema = pa.schema([
-        pa.field('setpoint', pa.string()),
-        pa.field('upper_temperature', pa.float64()),
-        pa.field('lower_temperature', pa.float64()),
-        pa.field('upper_conductivity', pa.float64()),
-        pa.field('lower_conductivity', pa.float64())
-    ])
+    if meta["type"] == "conductivity":
+        schema = pa.schema([
+            pa.field('setpoint', pa.string()),
+            pa.field('upper_temperature', pa.float64()),
+            pa.field('lower_temperature', pa.float64()),
+            pa.field('upper_conductivity', pa.float64()),
+            pa.field('lower_conductivity', pa.float64())
+        ])
+    elif meta["type"] == "specific_heat":
+        schema = pa.schema([
+            pa.field('setpoint', pa.string()),
+            pa.field('average_temperature', pa.float64()),
+            pa.field('specific_heat', pa.float64())
+        ])
     table = pa.Table.from_arrays(arrays, schema=schema)
-    col_units = {
-        'upper_temperature': {"units":units[0][0]},
-        'lower_temperature': {"units":units[1][0]},
-        'upper_conductivity': {"units":units[2][0]},
-        'lower_conductivity': {"units":units[3][0]}
-    }
+    if meta["type"] == "conductivity":
+        col_units = {
+            'upper_temperature': {"units":units[0][0]},
+            'lower_temperature': {"units":units[1][0]},
+            'upper_conductivity': {"units":units[2][0]},
+            'lower_conductivity': {"units":units[3][0]}
+        }
+    elif meta["type"] == "specific_heat":
+        col_units = {
+            'average_temperature': {"units":units[0][0]},
+            'specific_heat': {"units":units[1][0]}
+        }
     table = set_metadata(table, col_meta=col_units)
     return table
 
