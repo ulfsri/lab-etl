@@ -77,6 +77,8 @@ def get_cone_metadata(path: str):
         "test_ident": "test_id",
         "surf_area": "surface_area",
         "specimen_mass": "sample_mass",
+        "pre_test_cmt": "comment",
+        "post_test_cmt": "comment",
     }
     meta = pl.read_excel(
         path, engine="calamine", sheet_id=1, read_options={"header_row": None}
@@ -94,11 +96,16 @@ def get_cone_metadata(path: str):
                 value = float(value)
             except ValueError:
                 pass
-        meta_dict[key] = value
+        if key in meta_dict:
+            meta_dict[key] = [meta_dict[key], value]
+        else:
+            meta_dict[key] = value
     return meta_dict
 
 
 if __name__ == "__main__":
-    path = "tests/test_files/Cone/181031_LaGrange_5-1.XLSM"
+    path = "tests/test_files/Cone/Asphalt_Shingle_Cone_HF25_220415_R1.XLSM"
     table = load_cone_data(path)
-    pq.write_table(table, "tests/test_files/Cone/181031_LaGrange_5-1.parquet")
+    pq.write_table(
+        table, "tests/test_files/Cone/Asphalt_Shingle_Cone_HF25_220415_R1.parquet"
+    )

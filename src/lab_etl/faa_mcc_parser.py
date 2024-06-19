@@ -26,7 +26,7 @@ def load_mcc_data(path: str) -> pa.Table:
     cols, units = split_mcc_header(
         header
     )  # split the header into column names and units
-    sta_meta = get_mcc_metadata(path, encoding, i)
+    mcc_meta = get_mcc_metadata(path, encoding, i)
 
     read_opts = pacsv.ReadOptions(encoding=encoding, column_names=cols, skip_rows=i + 2)
     parse_opts = pacsv.ParseOptions(delimiter=delimiter)
@@ -37,7 +37,7 @@ def load_mcc_data(path: str) -> pa.Table:
     col_meta = {
         col: {"unit": unit} for col, unit in zip(cols, units)
     }  # store units in the column metadata
-    tbl_meta = sta_meta  # store the metadata of the file in the table metadata
+    tbl_meta = mcc_meta  # store the metadata of the file in the table metadata
     data_meta = set_metadata(
         data, col_meta=col_meta, tbl_meta=tbl_meta
     )  # store metadata in the table
@@ -47,7 +47,7 @@ def load_mcc_data(path: str) -> pa.Table:
 def get_mcc_metadata(
     path: str, encoding: str, header_end: int
 ) -> dict[str, str | float | dict[str, str | float]]:
-    """Get the metadata of a STA file.
+    """Get the metadata of a MCC file.
 
     Args:
         path (str): The path to the MCC file.
@@ -59,7 +59,9 @@ def get_mcc_metadata(
     """
     metadata: dict[str, str | float | dict[str, str | float]] = {}
     with open(path, "rb") as c:
-        hash = hashlib.blake2b(c.read()).hexdigest()  # hash the original file to store in metadata
+        hash = hashlib.blake2b(
+            c.read()
+        ).hexdigest()  # hash the original file to store in metadata
     with open(path, "r", encoding=encoding) as c:
         lines = c.readlines()
         for i, line in enumerate(lines):
@@ -177,7 +179,7 @@ def split_mcc_header(header: list[str]) -> tuple[list[str], list[str | None]]:
     """Split the header into column names and units.
 
     Args:
-        header (list[str]): The header for columns of the STA file.
+        header (list[str]): The header for columns of the MCC file.
 
     Returns:
         tuple[list[str], list[str | None]]: A tuple with two lists. The first list
@@ -187,19 +189,20 @@ def split_mcc_header(header: list[str]) -> tuple[list[str], list[str | None]]:
     """
     cols: list[str] = []
     units: list[str | None] = []
+    mapping = {"C": "°C", "/m": "1/m", "sec": "s", "cc/min": "ml/min", "C/s": "°C/s"}
     for col in header:
         if " (" in col:
             col, unit = col.split(" (", 1)  # Split at the first instance of "/"
-            cols.append(col.strip())
-            units.append(unit[:-1].strip())
+            cols.append(col.strip().lower().replace(" ", "_"))
+            unit = unit[:-1].strip()
+            units.append(mapping.get(unit, unit))
         else:
-            cols.append(col.strip())
+            cols.append(col.strip().lower().replace(" ", "_"))
             units.append(None)
     return (cols, units)
 
 
 if __name__ == "__main__":
-    # path = "02_Data/STA/Douglas Fir Validation/FILED/DF_FILED_VAL_STA_N2_10K_240211_R1.csv"
     path = "tests/test_files/MCC/Hemp_Sheet_MCC_30K_min_220112_R1.txt"
     df = load_mcc_data(path)
     metadata = {
@@ -209,5 +212,7 @@ if __name__ == "__main__":
         for k, v in df.schema.metadata.items()
     }
     pq.write_table(
-        df, "tests/test_files/MCC/Hemp_Sheet_MCC_30K_min_220112_R1.parquet", compression="snappy"
+        df,
+        "tests/test_files/MCC/Hemp_Sheet_MCC_30K_min_220112_R1.parquet",
+        compression="snappy",
     )

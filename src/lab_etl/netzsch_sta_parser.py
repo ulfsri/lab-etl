@@ -62,7 +62,9 @@ def get_sta_metadata(
     """
     metadata: dict[str, str | float | dict[str, str | float]] = {}
     with open(path, "rb") as c:
-        hash = hashlib.blake2b(c.read()).hexdigest()  # hash the original file to store in metadata
+        hash = hashlib.blake2b(
+            c.read()
+        ).hexdigest()  # hash the original file to store in metadata
     with open(path, "r", encoding=encoding) as c:
         lines = c.readlines()
         for i, line in enumerate(lines):
@@ -241,14 +243,14 @@ def split_sta_header(header: list[str]) -> tuple[list[str], list[str | None]]:
     """
     cols: list[str] = []
     units: list[str | None] = []
-    mapping = {"Temp.": "Temperature", "Sensit.": "Sensitivity"}
+    mapping = {"temp.": "temperature", "sensit.": "sensitivity"}
     for col in header:
         if "/" in col:
             col, unit = col.split("/", 1)  # Split at the first instance of "/"
-            cols.append(col.strip())
-            units.append(unit.strip())
+            cols.append(col.strip().lower().replace(" ", "_"))
+            units.append(unit.strip(" ()"))
         else:
-            cols.append(col.strip())
+            cols.append(col.strip().lower().replace(" ", "_"))
             units.append(None)
     for i in range(len(cols)):
         if cols[i] in mapping:

@@ -21,13 +21,13 @@ def load_ftir_data(file_path: str) -> pa.Table:
     if bool(opus_file):
         table = get_ftir_data(opus_file)
         col_meta = {
-            "Wavelength": {"unit": "µm"},
-            "Reflectance": {"unit": "a.u."},
-            "Absorbance": {"unit": "a.u."},
-            "Transmittance": {"unit": "a.u."},
-            "Reference Spectrum": {"unit": "a.u."},
-            "Sample Spectrum": {"unit": "a.u."},
-            "Sample Phase": {"unit": "a.u."},
+            "wavelength": {"unit": "µm"},
+            "reflectance": {"unit": "a.u."},
+            "absorbance": {"unit": "a.u."},
+            "transmittance": {"unit": "a.u."},
+            "reference_spectrum": {"unit": "a.u."},
+            "sample_spectrum": {"unit": "a.u."},
+            "sample_phase": {"unit": "a.u."},
         }
         tbl_meta = get_ftir_meta(opus_file)
         table = set_metadata(table, col_meta=col_meta, tbl_meta=tbl_meta)
@@ -53,8 +53,8 @@ def get_ftir_data(file: OPUSFile) -> pa.Table:
             np.float64(file.r.y),  # Reflectance
         ]
         schema_list = [
-            pa.field("Wavelength", pa.float64()),
-            pa.field(file.r.label, pa.float64()),
+            pa.field("wavelength", pa.float64()),
+            pa.field(file.r.label.lower().replace(" ", "_"), pa.float64()),
         ]
         for key in file.all_data_keys:
             if key != "r":
@@ -62,7 +62,11 @@ def get_ftir_data(file: OPUSFile) -> pa.Table:
                 y = np.float64(getattr(file, key).y)
                 y_new = np.interp(file.r.wl, x, y)
                 data.append(y_new)
-                schema_list.append(pa.field(getattr(file, key).label, pa.float64()))
+                schema_list.append(
+                    pa.field(
+                        getattr(file, key).label.lower().replace(" ", "_"), pa.float64()
+                    )
+                )
         schema = pa.schema(schema_list)
         return pa.Table.from_arrays(data, schema=schema)
     elif "a" in file.all_data_keys:
@@ -71,8 +75,8 @@ def get_ftir_data(file: OPUSFile) -> pa.Table:
             np.float64(file.a.y),  # Absorbance
         ]
         schema_list = [
-            pa.field("Wavelength", pa.float64()),
-            pa.field(file.a.label, pa.float64()),
+            pa.field("wavelength", pa.float64()),
+            pa.field(file.a.label.lower().replace(" ", "_"), pa.float64()),
         ]
         for key in file.all_data_keys:
             if key != "a":
@@ -80,14 +84,18 @@ def get_ftir_data(file: OPUSFile) -> pa.Table:
                 y = np.float64(getattr(file, key).y)
                 y_new = np.interp(file.a.wl, x, y)
                 data.append(y_new)
-                schema_list.append(pa.field(getattr(file, key).label, pa.float64()))
+                schema_list.append(
+                    pa.field(
+                        getattr(file, key).label.lower().replace(" ", "_"), pa.float64()
+                    )
+                )
         schema = pa.schema(schema_list)
         return pa.Table.from_arrays(data, schema=schema)
     elif "t" in file.all_data_keys:
         data = [np.float64(file.t.wl), np.float64(file.t.y)]
         schema_list = [
-            pa.field("Wavelength", pa.float64()),
-            pa.field(file.t.label, pa.float64()),
+            pa.field("wavelength", pa.float64()),
+            pa.field(file.t.label.lower().replace(" ", "_"), pa.float64()),
         ]
         for key in file.all_data_keys:
             if key != "t":
@@ -95,7 +103,11 @@ def get_ftir_data(file: OPUSFile) -> pa.Table:
                 y = np.float64(getattr(file, key).y)
                 y_new = np.interp(file.t.wl, x, y)
                 data.append(y_new)
-                schema_list.append(pa.field(getattr(file, key).label, pa.float64()))
+                schema_list.append(
+                    pa.field(
+                        getattr(file, key).label.lower().replace(" ", "_"), pa.float64()
+                    )
+                )
         schema = pa.schema(schema_list)
         return pa.Table.from_arrays(data, schema=schema)
 
@@ -120,7 +132,9 @@ def get_ftir_meta(file: OPUSFile) -> dict[Any, Any]:
         get_param_label(key).lower().replace(" ", "_"): value
         for key, value in file.rf_params.items()
     }
-    labels = {key.key: key.label for key in file.iter_all_data()}
+    labels = {
+        key.key: key.label.lower().replace(" ", "_") for key in file.iter_all_data()
+    }
     meta.update({"data_labels": labels})
     if "r" in labels:
         meta.update({"data_performed": file.r.datetime.isoformat()})
