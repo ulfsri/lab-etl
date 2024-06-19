@@ -41,6 +41,7 @@ plugins:
 nav:
   - Home: index.md
   - STA: sta.md
+  - MCC: mcc.md
 
 markdown_extensions:
   - pymdownx.highlight:
