@@ -1,77 +1,79 @@
 import csv
-import magic
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pyarrow import csv as pacsv
 import json
 from dateutil.parser import parse
-import hashlib
-from lab_etl.util import set_metadata
+from lab_etl.util import set_metadata, detect_encoding, get_hash
 
 
 def load_mcc_data(path: str) -> pa.Table:
-    """Load a MCC file and store metadata in the pyarrow table.
+    """Load an MCC file into a pyarrow.Table with metadata.
 
     Args:
-        path (str): The path to the MCC file.
+        path (str): Path to the MCC file.
 
     Returns:
-        pyarrow.Table: The table with the data from the MCC file and metadata.
+        pyarrow.Table: Table containing data and metadata from the MCC file.
     """
-    f = magic.Magic(mime_encoding=True)
-    encoding = f.from_file(path)  # get the encoding of the file
-    i, header, delimiter = find_mcc_header(
-        path, encoding
-    )  # find the header of the file
-    cols, units = split_mcc_header(
-        header
-    )  # split the header into column names and units
-    mcc_meta = get_mcc_metadata(path, encoding, i)
+    # Determine file encoding using python-magic
+    encoding = detect_encoding(path)
 
+    # Find header information
+    i, header, delimiter = find_mcc_header(path, encoding)
+
+    # Split header into column names and units
+    cols, units = split_mcc_header(header)
+
+    # Configure options for reading CSV
     read_opts = pacsv.ReadOptions(encoding=encoding, column_names=cols, skip_rows=i + 2)
     parse_opts = pacsv.ParseOptions(delimiter=delimiter)
-    data = pacsv.read_csv(
-        path, read_options=read_opts, parse_options=parse_opts
-    )  # read the data from the file
 
-    col_meta = {
-        col: {"unit": unit} for col, unit in zip(cols, units)
-    }  # store units in the column metadata
-    tbl_meta = mcc_meta  # store the metadata of the file in the table metadata
-    data_meta = set_metadata(
-        data, col_meta=col_meta, tbl_meta=tbl_meta
-    )  # store metadata in the table
-    return data_meta
+    # Read CSV data into an Arrow Table
+    table = pacsv.read_csv(path, read_options=read_opts, parse_options=parse_opts)
+
+    # Define column metadata
+    col_meta = {col: {"unit": unit} for col, unit in zip(cols, units)}
+
+    # Retrieve metadata from the MCC file
+    tbl_meta = get_mcc_metadata(path, encoding, i)
+
+    # Store metadata in the table
+    table = set_metadata(table, col_meta=col_meta, tbl_meta=tbl_meta)
+
+    return table
 
 
 def get_mcc_metadata(
     path: str, encoding: str, header_end: int
 ) -> dict[str, str | float | dict[str, str | float]]:
-    """Get the metadata of a MCC file.
+    """
+    Get the metadata of an MCC file.
 
     Args:
         path (str): The path to the MCC file.
         encoding (str): The encoding of the file.
-        header_loc (int): The index of the last line of the header in the file.
+        header_end (int): The index of the last line of the header in the file.
 
     Returns:
-        dict[str, str]: A dictionary with the metadata of the MCC file.
+        dict[str, str | float | dict[str, str | float]]: A dictionary with the metadata of the MCC file.
     """
     metadata: dict[str, str | float | dict[str, str | float]] = {}
-    with open(path, "rb") as c:
-        hash = hashlib.blake2b(
-            c.read()
-        ).hexdigest()  # hash the original file to store in metadata
-    with open(path, "r", encoding=encoding) as c:
-        lines = c.readlines()
+
+    # Generate file hash for metadata
+    file_hash = get_hash(path)
+
+    # Read file and extract metadata
+    with open(path, "r", encoding=encoding) as file:
+        lines = file.readlines()
         for i, line in enumerate(lines):
             if i > header_end - 1:
                 break
-            key, value = line[:].split(":", 1)
-            key = (
-                key.strip().lower().replace(" ", "_")
-            )  # convert key to lowercase and replace spaces with underscores (snake_case)
+            key, value = line.split(":", 1)
+            key = key.strip().lower().replace(" ", "_")
             value = value.strip(", \n\t")
+
+            # Attempt to convert value to int or float
             try:
                 meta_val = int(value)
             except ValueError:
@@ -79,63 +81,37 @@ def get_mcc_metadata(
                     meta_val = float(value)
                 except ValueError:
                     try:
-                        meta_val = {
-                            "date": parse(value).isoformat()
-                        }  # Others just true to parse as normal
+                        meta_val = {"date": parse(value).isoformat()}
                     except ValueError:
                         meta_val = value
-                        pass
-            if key.endswith(
-                "(mg)"
-            ):  # check if the key ends with "(mg)" and add it to value
-                key = key[:-5]  # remove "(mg)" from the end of the key
-                meta_val = {
-                    "value": meta_val,
-                    "unit": "mg",
-                }  # put the value in a tuple with "/mg"
-            elif key.endswith(
-                "(c/s)"
-            ):  # check if the key ends with "(C/s)" and add it to value
-                key = key[:-6]  # remove "(C/s)" from the end of the key
-                meta_val = {
-                    "value": meta_val,
-                    "unit": "°C/s",
-                }  # put the value in a tuple with "C/s"
-            elif key.endswith(
-                "(c)"
-            ):  # check if the key ends with "(C)" and add it to value
-                key = key[:-4]  # remove "(C)" from the end of the key
-                meta_val = {
-                    "value": meta_val,
-                    "unit": "°C",
-                }  # put the value in a tuple with "C"
-            elif key.endswith(
-                "(s)"
-            ):  # check if the key ends with "(s)" and add it to value
-                key = key[:-4]  # remove "(s)" from the end of the key
-                meta_val = {
-                    "value": meta_val,
-                    "unit": "s",
-                }  # put the value in a tuple with "s"
-            elif key.endswith(
-                "(cc/min)"
-            ):  # check if the key ends with "(cc/min)" and add it to value
-                key = key[:-8]
-                meta_val = {
-                    "value": meta_val,
-                    "unit": "ml/min",
-                }  # put the value in a tuple with "cc/min"
-            elif "calibration_file" in key:
+
+            # Unit handling
+            unit_mapping = {
+                "(mg)": "mg",
+                "(c/s)": "°C/s",
+                "(c)": "°C",
+                "(s)": "s",
+                "(cc/min)": "ml/min",
+            }
+            for unit_suffix, unit in unit_mapping.items():
+                if key.endswith(unit_suffix):
+                    key = key[: -len(unit_suffix)]
+                    meta_val = {"value": meta_val, "unit": unit}
+                    break
+
+            # Specific key adjustments
+            if "calibration_file" in key:
                 meta_val = {"file": meta_val}
             elif "t_correction_coefficients" in key:
-                metadata["temperature_calibration"].update(
+                metadata.setdefault("temperature_calibration", {}).update(
                     {
                         "coefficients": [
-                            float(i) for i in meta_val.replace("\t", ",").split(",")
+                            float(x) for x in meta_val.replace("\t", ",").split(",")
                         ]
                     }
                 )
                 continue
+
             key_mapping = {
                 "sample_weight": "sample_mass",
                 "combustor_temp": "combustor_temperature",
@@ -143,40 +119,50 @@ def get_mcc_metadata(
             }
             key = key_mapping.get(key, key)
             metadata[key.strip(" _")] = meta_val
+
+    # Add file hash to metadata
     metadata["file_hash"] = {
         "file": path.split("/")[-1],
         "method": "BLAKE2b",
-        "hash": hash,
+        "hash": file_hash,
     }
+
     return metadata
 
 
 def find_mcc_header(path: str, encoding: str) -> tuple[int, list[str], str]:
-    """Find the header of the MCC file.
+    """
+    Find the header of the MCC file.
 
     Args:
         path (str): The path to the MCC file.
         encoding (str): The encoding of the file.
 
     Returns:
-        tuple[int, list[str]]: A tuple with the index of the last line of the header
-            and the header itself.
+        Tuple[int, List[str], str]: A tuple with the index of the last line of the header,
+            the header itself, and the delimiter used in the file.
     """
-    with open(path, "r", encoding=encoding) as c:
-        delimiter = csv.Sniffer().sniff(c.read()).delimiter
-        c.seek(0)
-        reader = csv.reader(c, delimiter=delimiter)
-        for i, line in enumerate(reader):
-            if line == []:  # skip empty lines
-                continue
-            if line[0].startswith("*"):  # column names start with ##
-                header = next(reader)
-                break
-    return (i, header, delimiter)
+    try:
+        with open(path, "r", encoding=encoding) as file:
+            sample = file.read()
+            delimiter = csv.Sniffer().sniff(sample).delimiter
+            file.seek(0)
+            reader = csv.reader(file, delimiter=delimiter)
+            for i, line in enumerate(reader):
+                if not line:  # skip empty lines
+                    continue
+                if line[0].startswith("*"):  # column names start with *
+                    header = next(reader)
+                    return i, header, delimiter
+    except Exception as e:
+        raise ValueError(f"An error occurred while reading the file: {e}")
+
+    raise ValueError("Header not found in the MCC file.")
 
 
 def split_mcc_header(header: list[str]) -> tuple[list[str], list[str | None]]:
-    """Split the header into column names and units.
+    """
+    Split the header into column names and units.
 
     Args:
         header (list[str]): The header for columns of the MCC file.
@@ -187,19 +173,21 @@ def split_mcc_header(header: list[str]) -> tuple[list[str], list[str | None]]:
             no unit is present for a column, the corresponding element in the list
             is None.
     """
-    cols: list[str] = []
-    units: list[str | None] = []
     mapping = {"C": "°C", "/m": "1/m", "sec": "s", "cc/min": "ml/min", "C/s": "°C/s"}
-    for col in header:
+
+    def split_col_unit(col: str) -> tuple[str, str | None]:
         if " (" in col:
-            col, unit = col.split(" (", 1)  # Split at the first instance of "/"
-            cols.append(col.strip().lower().replace(" ", "_"))
-            unit = unit[:-1].strip()
-            units.append(mapping.get(unit, unit))
+            col_name, unit = col.split(" (", 1)
+            col_name = col_name.strip().lower().replace(" ", "_")
+            unit = unit.rstrip(")").strip()
+            unit = mapping.get(unit, unit)
+            return col_name, unit
         else:
-            cols.append(col.strip().lower().replace(" ", "_"))
-            units.append(None)
-    return (cols, units)
+            col_name = col.strip().lower().replace(" ", "_")
+            return col_name, None
+
+    cols, units = zip(*[split_col_unit(col) for col in header])
+    return list(cols), list(units)
 
 
 if __name__ == "__main__":

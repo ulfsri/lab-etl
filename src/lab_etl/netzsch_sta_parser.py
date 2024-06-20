@@ -1,5 +1,4 @@
 import csv
-import magic
 import pyarrow as pa
 import pyarrow.parquet as pq
 from pyarrow import csv as pacsv
@@ -7,7 +6,7 @@ import json
 from dateutil.parser import parse
 import re
 import hashlib
-from lab_etl.util import set_metadata
+from lab_etl.util import set_metadata, detect_encoding
 
 UNITS = (
     "/°C",
@@ -38,8 +37,7 @@ def load_sta_data(path: str) -> pa.Table:
     """
     try:
         # Determine file encoding
-        f = magic.Magic(mime_encoding=True)
-        encoding = f.from_file(path)
+        encoding = detect_encoding(path)
 
         # Find the header of the file
         i, header, delimiter = find_sta_header(path, encoding)

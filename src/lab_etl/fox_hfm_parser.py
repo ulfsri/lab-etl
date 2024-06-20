@@ -1,8 +1,6 @@
 import pyarrow as pa
 import pyarrow.parquet as pq
-from lab_etl.util import set_metadata
-import magic
-import hashlib
+from lab_etl.util import set_metadata, detect_encoding, get_hash
 import re
 from datetime import datetime as dt
 from typing import Any
@@ -10,8 +8,7 @@ import numpy as np
 
 
 def load_hfm_data(path):
-    f = magic.Magic(mime_encoding=True)
-    encoding = f.from_file(path)  # get the encoding of the file
+    encoding = detect_encoding(path)
     metadata = get_hfm_metadata(path, encoding)
     data = extract_hfm_data(metadata)
     table = set_metadata(data, tbl_meta=metadata)
@@ -21,12 +18,13 @@ def load_hfm_data(path):
 def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
     type = "conductivity"  # assume it's thermal conductivity unless we find otherwise
     metadata: dict[str, str | float | dict[str, str | float]] = {}
-    with open(path, "rb") as c:
-        hash = hashlib.blake2b(
-            c.read()
-        ).hexdigest()  # hash the original file to store in metadata
+
+    # Get file hash
+    hash = get_hash(path)
+
     with open(path, "r", encoding=encoding) as c:
         lines = c.readlines()
+
         for i, line in enumerate(lines):
             line = line.strip()
             if (
@@ -394,10 +392,30 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
 
 
 def extract_hfm_data(meta: dict[Any, Any]) -> pa.Table:
+    """Extract HFM data and return it as a PyArrow Table with metadata.
+
+    Args:
+        meta (dict): The metadata dictionary containing HFM data.
+
+    Returns:
+        pyarrow.Table: The PyArrow table with the extracted data and metadata.
+    """
     data = []
     units = []
+    col_units = {}
+
     if meta["type"] == "conductivity":
+        schema = pa.schema(
+            [
+                pa.field("setpoint", pa.int32()),
+                pa.field("upper_temperature", pa.float64()),
+                pa.field("lower_temperature", pa.float64()),
+                pa.field("upper_conductivity", pa.float64()),
+                pa.field("lower_conductivity", pa.float64()),
+            ]
+        )
         for key, value in meta["setpoints"].items():
+            setpoint = int(key.split("_")[1])
             upper_temp = value["temperature"]["upper"]["value"]
             upper_temp_unit = value["temperature"]["upper"]["unit"]
             lower_temp = value["temperature"]["lower"]["value"]
@@ -406,56 +424,45 @@ def extract_hfm_data(meta: dict[Any, Any]) -> pa.Table:
             upper_cond_unit = value["results"]["upper"]["unit"]
             lower_cond = value["results"]["lower"]["value"]
             lower_cond_unit = value["results"]["lower"]["unit"]
-            data.append(
-                [int(key.split("_")[1]), upper_temp, lower_temp, upper_cond, lower_cond]
-            )
-            units.append(
-                [upper_temp_unit, lower_temp_unit, upper_cond_unit, lower_cond_unit]
-            )
-    elif meta["type"] == "volumetric_heat_capacity":
-        for key, value in meta["setpoints"].items():
-            average_temp = value["temperature_average"]["value"]
-            average_temp_unit = value["temperature_average"]["unit"]
-            specific_heat = value["volumetric_heat_capacity"]["value"]
-            specific_heat_unit = value["volumetric_heat_capacity"]["unit"]
-            data.append([int(key.split("_")[1]), average_temp, specific_heat])
-            units.append([average_temp_unit, specific_heat_unit])
-    trans_data = np.transpose(data)
-    arrays = []
-    for i in range(len(trans_data)):
-        arrays.append(pa.array(trans_data[i]))
-    if meta["type"] == "conductivity":
-        schema = pa.schema(
-            [
-                pa.field("setpoint", pa.string()),
-                pa.field("upper_temperature", pa.float64()),
-                pa.field("lower_temperature", pa.float64()),
-                pa.field("upper_conductivity", pa.float64()),
-                pa.field("lower_conductivity", pa.float64()),
-            ]
-        )
+            data.append([setpoint, upper_temp, lower_temp, upper_cond, lower_cond])
+            units = [upper_temp_unit, lower_temp_unit, upper_cond_unit, lower_cond_unit]
+        col_units = {
+            "upper_temperature": {"units": units[0]},
+            "lower_temperature": {"units": units[1]},
+            "upper_conductivity": {"units": units[2]},
+            "lower_conductivity": {"units": units[3]},
+        }
     elif meta["type"] == "volumetric_heat_capacity":
         schema = pa.schema(
             [
-                pa.field("setpoint", pa.string()),
+                pa.field("setpoint", pa.int32()),
                 pa.field("average_temperature", pa.float64()),
                 pa.field("volumetric_heat_capacity", pa.float64()),
             ]
         )
+        for key, value in meta["setpoints"].items():
+            setpoint = int(key.split("_")[1])
+            average_temp = value["temperature_average"]["value"]
+            average_temp_unit = value["temperature_average"]["unit"]
+            specific_heat = value["volumetric_heat_capacity"]["value"]
+            specific_heat_unit = value["volumetric_heat_capacity"]["unit"]
+            data.append([setpoint, average_temp, specific_heat])
+            units = [average_temp_unit, specific_heat_unit]
+        col_units = {
+            "average_temperature": {"units": units[0]},
+            "volumetric_heat_capacity": {"units": units[1]},
+        }
+
+    # Transpose data to match schema
+    trans_data = np.transpose(data)
+    arrays = [pa.array(trans_data[i]) for i in range(len(trans_data))]
+
+    # Create PyArrow table from arrays and schema
     table = pa.Table.from_arrays(arrays, schema=schema)
-    if meta["type"] == "conductivity":
-        col_units = {
-            "upper_temperature": {"units": units[0][0]},
-            "lower_temperature": {"units": units[0][1]},
-            "upper_conductivity": {"units": units[0][2]},
-            "lower_conductivity": {"units": units[0][3]},
-        }
-    elif meta["type"] == "volumetric_heat_capacity":
-        col_units = {
-            "average_temperature": {"units": units[0][0]},
-            "volumetric_heat_capacity": {"units": units[0][1]},
-        }
+
+    # Add metadata to the table
     table = set_metadata(table, col_meta=col_units)
+
     return table
 
 
@@ -464,4 +471,10 @@ if __name__ == "__main__":
     df = load_hfm_data(path)
     pq.write_table(
         df, "tests/test_files/HFM/Black_PMMA_HFM_Dry_conductivity_211115_R1.parquet"
+    )
+    path = "tests/test_files/HFM/Black_PMMA_HFM_Dry_heatcapacity_211117_R3.tst"
+    df = load_hfm_data(path)
+    pq.write_table(
+        df,
+        "tests/test_files/HFM/Black_PMMA_HFM_Dry_heatcapacity_211117_R3.parquet",
     )

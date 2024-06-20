@@ -1,8 +1,12 @@
 """
 General utilities for working with Parquet files and PyArrow tables.
 """
+
 import json
 import pyarrow as pa
+import magic
+import hashlib
+
 
 def set_metadata(tbl, col_meta={}, tbl_meta={}) -> pa.Table:
     """Store table- and column-level metadata as json-encoded byte strings.
@@ -66,3 +70,23 @@ def set_metadata(tbl, col_meta={}, tbl_meta={}) -> pa.Table:
         tbl = tbl.cast(schema)
 
     return tbl
+
+
+def detect_encoding(path: str) -> str:
+    """Detect the encoding of a file using python-magic."""
+    f = magic.Magic(mime_encoding=True)
+    encoding = f.from_file(path)
+    return encoding
+
+
+def get_hash(path: str) -> str | None:
+    """Generate file hash for metadata."""
+    try:
+        with open(path, "rb") as file:
+            return hashlib.blake2b(file.read()).hexdigest()
+    except FileNotFoundError:
+        print(f"File not found: {path}")
+        return None
+    except Exception as e:
+        print(f"Error occurred while generating file hash: {e}")
+        return None
