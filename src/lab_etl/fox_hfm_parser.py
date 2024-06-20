@@ -15,6 +15,22 @@ def load_hfm_data(path):
     return table
 
 
+def parse_date(line: str) -> str | None:
+    """Parse date from a line."""
+    try:
+        datetime = dt.strptime(line.strip(), "%A, %B %d, %Y, Time %H:%M")
+        return datetime.isoformat()
+    except ValueError:
+        return None
+
+
+def extract_value_and_unit(sub_line: str) -> dict[str, float | str]:
+    """Extract value and unit from a line."""
+    value = float(re.findall(r"\d+\.\d+", sub_line)[0])
+    unit = re.findall("[a-zA-Z]+", sub_line)[0]
+    return {"value": value, "unit": unit}
+
+
 def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
     type = "conductivity"  # assume it's thermal conductivity unless we find otherwise
     metadata: dict[str, str | float | dict[str, str | float]] = {}
@@ -27,68 +43,54 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
 
         for i, line in enumerate(lines):
             line = line.strip()
-            if (
-                "date_performed" not in metadata
-            ):  # if the date_performed is not already in metadata
-                try:
-                    datetime = dt.strptime(
-                        line, "%A, %B %d, %Y, Time %H:%M"
-                    )  # try to parse the date
-                    metadata.update(
-                        {"date_performed": datetime.isoformat()}
-                    )  # if successful, store the date in metadata as the date_performed
-                except ValueError:
-                    pass
+
+            if "date_performed" not in metadata:
+                date_performed = parse_date(line)
+                if date_performed:
+                    metadata["date_performed"] = date_performed
+
             if line.startswith("Sample Name: "):
                 metadata.update({"sample_id": line.split(":")[1].strip()})
+
             elif line.startswith("Run Mode"):
                 type = line.split(":")[1].strip().lower().replace(" ", "_")
                 if type == "specific_heat":
                     type = "volumetric_heat_capacity"
+
             elif line.startswith("Transducer Heat Capacity Coefficients"):
                 if "calibration" not in metadata:
-                    metadata.update({"calibration": {}})
-                sub_line = line.split(":")[1].strip()
-                A = float(re.findall(r"\d+\.\d+", sub_line)[0])
-                B = float(re.findall(r"\d+\.\d+", sub_line)[1])
-                metadata["calibration"].update(
-                    {"heat_capacity_coefficients": {"A": A, "B": B}}
-                )
+                    metadata["calibration"] = {}
+                coefficients = re.findall(r"\d+\.\d+", line.split(":")[1].strip())
+                metadata["calibration"]["heat_capacity_coefficients"] = {
+                    "A": float(coefficients[0]),
+                    "B": float(coefficients[1]),
+                }
+
             elif line.startswith("Thickness: "):
-                sub_line = line.split(":")[1].strip()
-                value = float(re.findall(r"\d+\.\d+", sub_line)[0])
-                unit = re.findall("[a-zA-Z]+", sub_line)[0]
-                metadata.update({"thickness": {"value": value, "unit": unit}})
+                metadata["thickness"] = extract_value_and_unit(
+                    line.split(":")[1].strip()
+                )
+
             elif line.startswith("Rear Left :"):
-                sub_line = line.split(":")[1].strip()
                 if "thickness" not in metadata:
-                    metadata.update({"thickness": {}})
-                value = float(re.findall(r"\d+\.\d+", sub_line)[0])
-                unit = re.findall("[a-zA-Z]+", sub_line)[0]
-                metadata["thickness"].update(
-                    {"rear_left": {"value": value, "unit": unit}}
+                    metadata["thickness"] = {}
+                metadata["thickness"]["rear_left"] = extract_value_and_unit(
+                    line.split(":")[1].strip()
                 )
-                sub_line = line.split(":")[2].strip()
-                value = float(re.findall(r"\d+\.\d+", sub_line)[0])
-                unit = re.findall("[a-zA-Z]+", sub_line)[0]
-                metadata["thickness"].update(
-                    {"rear_right": {"value": value, "unit": unit}}
+                metadata["thickness"]["rear_right"] = extract_value_and_unit(
+                    line.split(":")[2].strip()
                 )
+
             elif line.startswith("Front Left:"):
-                sub_line = line.split(":")[1].strip()
                 if "thickness" not in metadata:
-                    metadata.update({"thickness": {}})
-                value = float(re.findall(r"\d+\.\d+", sub_line)[0])
-                unit = re.findall("[a-zA-Z]+", sub_line)[0]
-                metadata["thickness"].update(
-                    {"front_left": {"value": value, "unit": unit}}
+                    metadata["thickness"] = {}
+                metadata["thickness"]["front_left"] = extract_value_and_unit(
+                    line.split(":")[1].strip()
                 )
-                sub_line = line.split(":")[2].strip()
-                value = float(re.findall(r"\d+\.\d+", sub_line)[0])
-                unit = re.findall("[a-zA-Z]+", sub_line)[0]
-                metadata["thickness"].update(
-                    {"front_right": {"value": value, "unit": unit}}
+                metadata["thickness"]["front_right"] = extract_value_and_unit(
+                    line.split(":")[2].strip()
                 )
+
             elif (
                 line.startswith("[")
                 and line.endswith("]")
@@ -100,53 +102,47 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                     metadata.update(
                         {"comment": [metadata["comment"], line.strip("[]").strip()]}
                     )
+
             elif line.startswith("Thickness obtained"):
                 if "thickness" not in metadata:
-                    metadata.update({"thickness": {}})
-                metadata["thickness"].update(
-                    {"obtained": line.split(":")[1].strip("from ")}
-                )
+                    metadata["thickness"] = {}
+                metadata["thickness"]["obtained"] = line.split(":")[1].strip("from ")
+
             elif line.startswith("Calibration used"):
                 if "calibration" not in metadata:
-                    metadata.update({"calibration": {}})
-                metadata["calibration"].update({"type": line.split(":")[1].strip()})
+                    metadata["calibration"] = {}
+                metadata["calibration"]["type"] = line.split(":")[1].strip()
+
             elif line.startswith("Calibration File Id"):
                 if "calibration" not in metadata:
-                    metadata.update({"calibration": {}})
-                metadata["calibration"].update({"file": line.split(":")[1].strip()})
+                    metadata["calibration"] = {}
+                metadata["calibration"]["file"] = line.split(":")[1].strip()
+
             elif line.startswith("Number of transducer per plate"):
-                metadata.update(
-                    {"number_of_transducers": int(line.split(":")[1].strip())}
-                )
+                metadata["number_of_transducers"] = int(line.split(":")[1].strip())
+
             elif line.startswith("Number of Setpoints"):
-                metadata.update(
-                    {"number_of_setpoints": int(line.split(":")[1].strip())}
-                )
-                if type == "conductivity":
-                    offset = 1
-                elif type == "volumetric_heat_capacity":
-                    offset = 0
+                metadata["number_of_setpoints"] = int(line.split(":")[1].strip())
+                offset = 1 if type == "conductivity" else 0
                 for j in range(i + 1, i + offset + metadata["number_of_setpoints"]):
                     if "setpoints" not in metadata:
-                        metadata.update({"setpoints": {}})
-                    metadata["setpoints"].update({f"setpoint_{j-i}": {}})
+                        metadata["setpoints"] = {}
+                    metadata["setpoints"][f"setpoint_{j-i}"] = {}
+
             elif line.startswith("Setpoint No."):
                 setpoint = int(line.split(".")[1].strip())
+                setpoint_key = f"setpoint_{setpoint}"
+
                 for j in range(1, 19):
-                    if (
-                        "date_performed"
-                        not in metadata["setpoints"][f"setpoint_{setpoint}"]
-                    ):
-                        try:
-                            datetime = dt.strptime(
-                                lines[i - 2].strip(), "%A, %B %d, %Y, Time %H:%M"
+                    if "date_performed" not in metadata["setpoints"][setpoint_key]:
+                        date_performed = parse_date(lines[i - 2])
+                        if date_performed:
+                            metadata["setpoints"][setpoint_key]["date_performed"] = (
+                                date_performed
                             )
-                            metadata["setpoints"][f"setpoint_{setpoint}"].update(
-                                {"date_performed": datetime.isoformat()}
-                            )
-                        except ValueError:
-                            pass
-                    if lines[i + j].strip().startswith("Setpoint Upper:"):
+
+                    sub_line = lines[i + j].strip()
+                    if sub_line.startswith("Setpoint Upper:"):
                         value = re.findall(
                             r"\d+\.\d+", lines[i + j].split(":")[1].strip()
                         )[0]
@@ -163,7 +159,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         metadata["setpoints"][f"setpoint_{setpoint}"][
                             "setpoint_temperature"
                         ].update({"upper": {"value": float(value), "unit": unit}})
-                    elif lines[i + j].strip().startswith("Setpoint Lower:"):
+
+                    elif sub_line.startswith("Setpoint Lower:"):
                         value = re.findall(
                             r"\d+\.\d+", lines[i + j].split(":")[1].strip()
                         )[0]
@@ -180,7 +177,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         metadata["setpoints"][f"setpoint_{setpoint}"][
                             "setpoint_temperature"
                         ].update({"lower": {"value": float(value), "unit": unit}})
-                    elif lines[i + j].strip().startswith("Temperature Upper"):
+
+                    elif sub_line.startswith("Temperature Upper"):
                         value = re.findall(
                             r"\d+\.\d+", lines[i + j].split(":")[1].strip()
                         )[0]
@@ -197,7 +195,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         metadata["setpoints"][f"setpoint_{setpoint}"][
                             "temperature"
                         ].update({"upper": {"value": float(value), "unit": unit}})
-                    elif lines[i + j].strip().startswith("Temperature Lower"):
+
+                    elif sub_line.startswith("Temperature Lower"):
                         value = re.findall(
                             r"\d+\.\d+", lines[i + j].split(":")[1].strip()
                         )[0]
@@ -214,7 +213,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         metadata["setpoints"][f"setpoint_{setpoint}"][
                             "temperature"
                         ].update({"lower": {"value": float(value), "unit": unit}})
-                    elif lines[i + j].strip().startswith("CalibFactor  Upper"):
+
+                    elif sub_line.startswith("CalibFactor  Upper"):
                         if (
                             "calibration"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -227,7 +227,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         metadata["setpoints"][f"setpoint_{setpoint}"][
                             "calibration"
                         ].update({"upper": {"value": value, "unit": unit}})
-                    elif lines[i + j].strip().startswith("CalibFactor  Lower"):
+
+                    elif sub_line.startswith("CalibFactor  Lower"):
                         if (
                             "calibration"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -240,7 +241,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         metadata["setpoints"][f"setpoint_{setpoint}"][
                             "calibration"
                         ].update({"lower": {"value": value, "unit": unit}})
-                    elif lines[i + j].strip().startswith("Results Upper"):
+
+                    elif sub_line.startswith("Results Upper"):
                         if (
                             "results"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -259,7 +261,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         metadata["setpoints"][f"setpoint_{setpoint}"]["results"].update(
                             {"upper": {"value": value, "unit": unit}}
                         )
-                    elif lines[i + j].strip().startswith("Results Lower"):
+
+                    elif sub_line.startswith("Results Lower"):
                         if (
                             "results"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -278,7 +281,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         metadata["setpoints"][f"setpoint_{setpoint}"]["results"].update(
                             {"lower": {"value": value, "unit": unit}}
                         )
-                    elif lines[i + j].strip().startswith("Temperature Equilibrium"):
+
+                    elif sub_line.startswith("Temperature Equilibrium"):
                         if (
                             "thermal_equilibrium"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -291,7 +295,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         ].update(
                             {"temperature": float(lines[i + j].split(":")[1].strip())}
                         )
-                    elif lines[i + j].strip().startswith("Between Block HFM Equil."):
+
+                    elif sub_line.startswith("Between Block HFM Equil."):
                         if (
                             "thermal_equilibrium"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -304,7 +309,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                         ].update(
                             {"between_block": float(lines[i + j].split(":")[1].strip())}
                         )
-                    elif lines[i + j].strip().startswith("HFM Percent Change"):
+
+                    elif sub_line.startswith("HFM Percent Change"):
                         if (
                             "thermal_equilibrium"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -321,7 +327,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                                 )
                             }
                         )
-                    elif lines[i + j].strip().startswith("Min Number of Blocks"):
+
+                    elif sub_line.startswith("Min Number of Blocks"):
                         if (
                             "thermal_equilibrium"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -338,7 +345,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                                 )
                             }
                         )
-                    elif lines[i + j].strip().startswith("Calculation Blocks"):
+
+                    elif sub_line.startswith("Calculation Blocks"):
                         if (
                             "thermal_equilibrium"
                             not in metadata["setpoints"][f"setpoint_{setpoint}"]
@@ -355,7 +363,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                                 )
                             }
                         )
-                    elif lines[i + j].strip().startswith("Temperature Average"):
+
+                    elif sub_line.startswith("Temperature Average"):
                         value = re.findall(
                             r"\d+\.\d+", lines[i + j].split(":")[1].strip()
                         )[0]
@@ -370,7 +379,8 @@ def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
                                 }
                             }
                         )
-                    elif lines[i + j].strip().startswith("Specific Heat"):
+
+                    elif sub_line.startswith("Specific Heat"):
                         sub_line = lines[i + j].split(":")[1].strip()
                         value = re.findall(r"\d+", sub_line)[0]
                         unit = sub_line.replace(value, "").strip()
