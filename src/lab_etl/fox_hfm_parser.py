@@ -1,10 +1,12 @@
-import pyarrow as pa
-import pyarrow.parquet as pq
-from lab_etl.util import set_metadata, detect_encoding, get_hash
 import re
 from datetime import datetime as dt
 from typing import Any
+
 import numpy as np
+import pyarrow as pa
+import pyarrow.parquet as pq
+
+from lab_etl.util import detect_encoding, get_hash, set_metadata
 
 
 def load_hfm_data(path):
@@ -32,6 +34,7 @@ def extract_value_and_unit(sub_line: str) -> dict[str, float | str]:
 
 
 def get_hfm_metadata(path: str, encoding: str = "utf-16le"):
+    """Extract metadata from a HFM file."""
     type = "conductivity"  # assume it's thermal conductivity unless we find otherwise
     metadata: dict[str, str | float | dict[str, str | float]] = {}
 
@@ -420,8 +423,8 @@ def extract_hfm_data(meta: dict[Any, Any]) -> pa.Table:
                 pa.field("setpoint", pa.int32()),
                 pa.field("upper_temperature", pa.float64()),
                 pa.field("lower_temperature", pa.float64()),
-                pa.field("upper_conductivity", pa.float64()),
-                pa.field("lower_conductivity", pa.float64()),
+                pa.field("upper_thermal_conductivity", pa.float64()),
+                pa.field("lower_thermal_conductivity", pa.float64()),
             ]
         )
         for key, value in meta["setpoints"].items():
@@ -439,8 +442,8 @@ def extract_hfm_data(meta: dict[Any, Any]) -> pa.Table:
         col_units = {
             "upper_temperature": {"units": units[0]},
             "lower_temperature": {"units": units[1]},
-            "upper_conductivity": {"units": units[2]},
-            "lower_conductivity": {"units": units[3]},
+            "upper_thermal_conductivity": {"units": units[2]},
+            "lower_thermal_conductivity": {"units": units[3]},
         }
     elif meta["type"] == "volumetric_heat_capacity":
         schema = pa.schema(

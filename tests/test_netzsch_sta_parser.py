@@ -1,22 +1,27 @@
-import unittest
-import os
-import pyarrow as pa
 import json
+import os
+import unittest
+
+import pyarrow as pa
 import pyarrow.parquet as pq
 from lab_etl.netzsch_sta_parser import (
-    load_sta_data,
-    get_sta_metadata,
     find_sta_header,
-    split_sta_header,
+    get_sta_metadata,
+    load_sta_data,
     set_metadata,
+    split_sta_header,
 )
 
 
 class TestParseSTA(unittest.TestCase):
     def setUp(self):
         self.test_files_dir = "tests/test_files/STA"
-        self.csv_file_path = os.path.join(self.test_files_dir, "DF_FILED_VAL_STA_N2_10K_240211_R1.csv")
-        self.parquet_file_path = os.path.join(self.test_files_dir, "DF_FILED_VAL_STA_N2_10K_240211_R1.parquet")
+        self.csv_file_path = os.path.join(
+            self.test_files_dir, "DF_FILED_VAL_STA_N2_10K_240211_R1.csv"
+        )
+        self.parquet_file_path = os.path.join(
+            self.test_files_dir, "DF_FILED_VAL_STA_N2_10K_240211_R1.parquet"
+        )
 
     def tearDown(self):
         if os.path.exists(self.parquet_file_path):
@@ -27,7 +32,10 @@ class TestParseSTA(unittest.TestCase):
         self.assertIsInstance(table, pa.Table)
         self.assertEqual(table.num_rows, 1094)
         self.assertEqual(table.num_columns, 7)
-        self.assertEqual(table.column_names, ["Temperature", "Time", "Mass", "DSC", "DTG", "Sensitivity", "Segment"])
+        self.assertEqual(
+            table.column_names,
+            ["Temperature", "Time", "Mass", "DSC", "DTG", "Sensitivity", "Segment"],
+        )
         self.assertEqual(table.schema.field("Temperature").type, pa.float64())
         self.assertEqual(table.schema.field("Time").type, pa.float64())
         self.assertEqual(table.schema.field("Mass").type, pa.float64())
@@ -37,15 +45,18 @@ class TestParseSTA(unittest.TestCase):
         self.assertEqual(table.schema.field("Segment").type, pa.int64())
 
     def test_get_sta_metadata(self):
-        metadata = get_sta_metadata(self.csv_file_path, encoding="iso-8859-1", header_end=45)
+        metadata = get_sta_metadata(
+            self.csv_file_path, encoding="iso-8859-1", header_end=45
+        )
         self.assertIsInstance(metadata, dict)
         self.assertIn("export_type", metadata)
         self.assertIn("segment", metadata)
         self.assertIn("sample_mass", metadata)
 
-
     def test_find_sta_header(self):
-        header_end, columns, delimiter = find_sta_header(self.csv_file_path, encoding="iso-8859-1")
+        header_end, columns, delimiter = find_sta_header(
+            self.csv_file_path, encoding="iso-8859-1"
+        )
         self.assertIsInstance(header_end, int)
         self.assertIsInstance(columns, list)
         self.assertIsInstance(delimiter, str)
@@ -62,25 +73,21 @@ class TestParseSTA(unittest.TestCase):
         self.assertEqual(column_units, ["mg", "C", "ml/min"])
 
     def test_set_metadata(self):
-        data = [
-            [1, 2, 3],
-            [4, 5, 6],
-            [7, 8, 9]
-        ]
-        schema = pa.schema([
-            pa.field("A", pa.int64()),
-            pa.field("B", pa.int64()),
-            pa.field("C", pa.int64())
-        ])
+        data = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+        schema = pa.schema(
+            [
+                pa.field("A", pa.int64()),
+                pa.field("B", pa.int64()),
+                pa.field("C", pa.int64()),
+            ]
+        )
         table = pa.Table.from_arrays(data, schema=schema)
         col_meta = {
             "A": {"description": "Column A"},
             "B": {"description": "Column B"},
-            "C": {"description": "Column C"}
+            "C": {"description": "Column C"},
         }
-        tbl_meta = {
-            "table_description": "Sample Table"
-        }
+        tbl_meta = {"table_description": "Sample Table"}
         updated_table = set_metadata(table, col_meta=col_meta, tbl_meta=tbl_meta)
         self.assertIsInstance(updated_table, pa.Table)
         for col in updated_table.schema.names:
@@ -113,6 +120,7 @@ class TestParseSTA(unittest.TestCase):
     #     metadata = table_read.schema.metadata
     #     self.assertIn(b"column1", metadata)
     #     self.assertIn(b"column2", metadata)
+
 
 if __name__ == "__main__":
     unittest.main()

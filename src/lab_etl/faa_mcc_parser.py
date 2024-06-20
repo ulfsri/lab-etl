@@ -1,10 +1,12 @@
 import csv
+import json
+
 import pyarrow as pa
 import pyarrow.parquet as pq
-from pyarrow import csv as pacsv
-import json
 from dateutil.parser import parse
-from lab_etl.util import set_metadata, detect_encoding, get_hash
+from pyarrow import csv as pacsv
+
+from lab_etl.util import detect_encoding, get_hash, set_metadata
 
 
 def load_mcc_data(path: str) -> pa.Table:
@@ -72,6 +74,8 @@ def get_mcc_metadata(
             key, value = line.split(":", 1)
             key = key.strip().lower().replace(" ", "_")
             value = value.strip(", \n\t")
+
+            meta_val: str | float | dict[str, str | float]
 
             # Attempt to convert value to int or float
             try:

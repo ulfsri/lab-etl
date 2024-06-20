@@ -2,10 +2,11 @@
 General utilities for working with Parquet files and PyArrow tables.
 """
 
-import json
-import pyarrow as pa
-import magic
 import hashlib
+import json
+
+import magic
+import pyarrow as pa
 
 
 def set_metadata(tbl, col_meta={}, tbl_meta={}) -> pa.Table:

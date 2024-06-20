@@ -1,8 +1,10 @@
+from typing import Any
+
+import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
-from lab_etl.util import set_metadata, get_hash
-import polars as pl
-from typing import Any
+
+from lab_etl.util import get_hash, set_metadata
 
 
 def load_cone_data(path: str) -> pa.Table:
@@ -169,6 +171,7 @@ def get_cone_metadata(path: str) -> dict:
         "hash": file_hash,
     }
     return meta_dict
+
 
 if __name__ == "__main__":
     path = "tests/test_files/Cone/Asphalt_Shingle_Cone_HF25_220415_R1.XLSM"

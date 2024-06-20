@@ -1,12 +1,13 @@
 import csv
+import json
+import re
+
 import pyarrow as pa
 import pyarrow.parquet as pq
-from pyarrow import csv as pacsv
-import json
 from dateutil.parser import parse
-import re
-import hashlib
-from lab_etl.util import set_metadata, detect_encoding
+from pyarrow import csv as pacsv
+
+from lab_etl.util import detect_encoding, set_metadata, get_hash
 
 UNITS = (
     "/°C",
@@ -89,7 +90,12 @@ def get_sta_metadata(
     metadata: dict[str, str | float | dict[str, str | float]] = {}
 
     # Hash the original file to store in metadata
-    metadata["file_hash"] = generate_file_hash(path)
+    file_hash = get_hash(path)
+    metadata["file_hash"] = {
+        "file": path.split("/")[-1],
+        "method": "BLAKE2b",
+        "hash": file_hash,
+    }
 
     with open(path, "r", encoding=encoding) as file:
         lines = file.readlines()
@@ -101,20 +107,6 @@ def get_sta_metadata(
                 metadata[key] = value
 
     return metadata
-
-
-def generate_file_hash(path: str) -> dict[str, str]:
-    """Generate a hash for the file at the given path.
-
-    Args:
-        path (str): The path to the file.
-
-    Returns:
-        dict[str, str]: A dictionary with the file name, hash method, and hash value.
-    """
-    with open(path, "rb") as file:
-        file_hash = hashlib.blake2b(file.read()).hexdigest()
-    return {"file": path.split("/")[-1], "method": "BLAKE2b", "hash": file_hash}
 
 
 def process_metadata_line(line: str) -> tuple:
