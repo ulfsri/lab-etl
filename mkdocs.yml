@@ -43,6 +43,8 @@ nav:
   - STA: sta.md
   - MCC: mcc.md
   - FTIR: ftir.md
+  - HFM: hfm.md
+  - Cone: cone.md
 
 markdown_extensions:
   - pymdownx.highlight:
