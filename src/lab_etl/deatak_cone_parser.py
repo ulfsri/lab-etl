@@ -31,7 +31,6 @@ def load_cone_data(path: str) -> pa.Table:
         df = pl.read_excel(
             path, engine="calamine", sheet_id=2, read_options={"skip_rows": 4}
         )
-        print(df)
     except Exception as e:
         raise ValueError(f"Error reading Excel file at {path}: {str(e)}")
 
@@ -54,7 +53,9 @@ def load_cone_data(path: str) -> pa.Table:
     table = df.to_arrow()
 
     # Add metadata to the PyArrow Table
-    table_meta = set_metadata(table, col_meta=units, tbl_meta=meta)
+    table_meta = set_metadata(
+        table, col_meta=units, tbl_meta={"file_metadata": meta, "type": "Cone"}
+    )
 
     return table_meta
 
@@ -179,4 +180,4 @@ if __name__ == "__main__":
     pq.write_table(
         table, "tests/test_files/Cone/Asphalt_Shingle_Cone_HF25_220415_R1.parquet"
     )
-    print(table)
+    # print(table)

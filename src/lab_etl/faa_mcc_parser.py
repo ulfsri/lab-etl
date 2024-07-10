@@ -41,7 +41,9 @@ def load_mcc_data(path: str) -> pa.Table:
     tbl_meta = get_mcc_metadata(path, encoding, i)
 
     # Store metadata in the table
-    table = set_metadata(table, col_meta=col_meta, tbl_meta=tbl_meta)
+    table = set_metadata(
+        table, col_meta=col_meta, tbl_meta={"file_metadata": tbl_meta, "type": "MCC"}
+    )
 
     return table
 

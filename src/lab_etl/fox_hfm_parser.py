@@ -13,7 +13,7 @@ def load_hfm_data(path):
     encoding = detect_encoding(path)
     metadata = get_hfm_metadata(path, encoding)
     data = extract_hfm_data(metadata)
-    table = set_metadata(data, tbl_meta=metadata)
+    table = set_metadata(data, tbl_meta={"file_metadata": metadata, "type": "HFM"})
     return table
 
 

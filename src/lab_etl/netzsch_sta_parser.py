@@ -60,7 +60,7 @@ def load_sta_data(path: str) -> pa.Table:
         col_meta = {col: {"unit": unit} for col, unit in zip(cols, units)}
 
         # Store the metadata of the file in the table metadata
-        tbl_meta = sta_meta
+        tbl_meta = {"file_metadata": sta_meta, "type": "STA"}
 
         # Store metadata in the table
         data_meta = set_metadata(data, col_meta=col_meta, tbl_meta=tbl_meta)

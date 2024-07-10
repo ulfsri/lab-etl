@@ -38,7 +38,11 @@ def load_ftir_data(file_path: str) -> pa.Table:
         tbl_meta = get_ftir_meta(opus_file)
 
         # Set metadata to the table
-        table = set_metadata(table, col_meta=col_meta, tbl_meta=tbl_meta)
+        table = set_metadata(
+            table,
+            col_meta=col_meta,
+            tbl_meta={"file_metadata": tbl_meta, "type": "FTIR"},
+        )
         return table
     else:
         raise ValueError("Not a valid OPUS file")
@@ -149,7 +153,6 @@ if __name__ == "__main__":
     #     "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.0"
     # )
     table = load_ftir_data(path)
-    print(table)
     pq.write_table(
         table,
         "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.parquet",
