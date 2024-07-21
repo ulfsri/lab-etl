@@ -12,7 +12,7 @@ repos:
       - id: trailing-whitespace
         exclude: ^(tests/test_files)/
   - repo: https://github.com/charliermarsh/ruff-pre-commit
-    rev: v0.4.9
+    rev: v0.5.1
     hooks:
       - id: ruff
         args:
@@ -23,7 +23,7 @@ repos:
       - id: prettier
         exclude: templates|migrations|scripts|docs|dist|.venv|public
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.10.0
+    rev: v1.10.1
     hooks:
       - id: mypy
         exclude: scripts/

@@ -1,11 +1,12 @@
-from brukeropus import read_opus
-from brukeropus.file import OPUSFile
+from typing import Any
+
+import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
-from typing import Any
-import numpy as np
-from brukeropus.file import get_param_label
-from lab_etl.util import set_metadata, get_hash
+from brukeropus import read_opus
+from brukeropus.file import OPUSFile, get_param_label
+
+from lab_etl.util import get_hash, set_metadata
 
 
 def load_ftir_data(file_path: str) -> pa.Table:
@@ -37,7 +38,11 @@ def load_ftir_data(file_path: str) -> pa.Table:
         tbl_meta = get_ftir_meta(opus_file)
 
         # Set metadata to the table
-        table = set_metadata(table, col_meta=col_meta, tbl_meta=tbl_meta)
+        table = set_metadata(
+            table,
+            col_meta=col_meta,
+            tbl_meta={"file_metadata": tbl_meta, "type": "FTIR"},
+        )
         return table
     else:
         raise ValueError("Not a valid OPUS file")
@@ -58,8 +63,8 @@ def get_ftir_data(file: OPUSFile) -> pa.Table:
     ) -> tuple[list[np.ndarray], list[pa.field]]:
         """Constructs schema and data arrays based on the main data key and label."""
         data = [
-            np.float64(getattr(file, main_key).wl),
-            np.float64(getattr(file, main_key).y),
+            np.array(getattr(file, main_key).wl, dtype=np.float64),
+            np.array(getattr(file, main_key).y, dtype=np.float64),
         ]
         schema_list = [
             pa.field("wavelength", pa.float64()),
@@ -68,10 +73,10 @@ def get_ftir_data(file: OPUSFile) -> pa.Table:
 
         for key in file.all_data_keys:
             if key != main_key:
-                x = np.float64(getattr(file, key).wl)
-                y = np.float64(getattr(file, key).y)
+                x = np.array(getattr(file, key).wl, dtype=np.float64)
+                y = np.array(getattr(file, key).y, dtype=np.float64)
                 y_new = np.interp(getattr(file, main_key).wl, x, y)
-                data.append(y_new)
+                data.append(np.array(y_new, dtype=np.float64))
                 schema_list.append(
                     pa.field(
                         getattr(file, key).label.lower().replace(" ", "_"), pa.float64()
@@ -148,7 +153,6 @@ if __name__ == "__main__":
     #     "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.0"
     # )
     table = load_ftir_data(path)
-    print(table)
     pq.write_table(
         table,
         "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.parquet",
