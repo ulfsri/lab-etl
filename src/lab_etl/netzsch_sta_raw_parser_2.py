@@ -3,7 +3,7 @@ import csv
 import struct
 from datetime import datetime
 
-path = "tests/test_files/STA/Ford_3FMT_Liner_STA_N2_10K_240606_Correction_R1.ngb-bs3"
+path = "tests/test_files/STA/Hyundai_KM8K_Carpet_STA_N2_10K_240711_R3.ngb-ss3"
 
 # function used for removing nested
 # lists in python using recursion
@@ -146,8 +146,33 @@ with zipfile.ZipFile(path, "r") as z:
                         #         )
                         #     except struct.error:
                         #         stream_table[idx][4] = 'Unknown: "' + x[4] + '"'
+            # for idx, x in enumerate(stream_table):
+            #     if len(x)>3:
+            #         if x[3] == "1a":
+            #             if '"5' in x[2]:
+            #                 level = 0
+            #             elif '"8' in x[2]:
+            #                 level = 2
+            #             elif '"6' in x[2]:
+            #                 level = 3
+            #             elif '"7' in x[2]:
+            #                 level = 4
+            #             elif '"3' in x[2]:
+            #                 level = 5
+            #             i = 1
+            #             for j in range(level):
+            #                 stream_table[idx].insert(1, "")
+            #             try:
+            #                 while stream_table[idx+i][3] != "1a":
+            #                     for j in range(level):
+            #                         stream_table[idx+i].insert(1, "")
+            #                     i += 1
+            #             except IndexError:
+            #                 pass
 
-            with open("output2.csv", "w") as f:
+
+            print(stream_table)
+            with open("output5.csv", "w") as f:
                 # using csv.writer method from CSV package
                 write = csv.writer(f)
 
