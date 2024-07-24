@@ -118,25 +118,25 @@ with zipfile.ZipFile(path, "r") as z:
                                 + str(struct.unpack("<?", bytes.fromhex(x[4]))[0])
                                 + '"'
                             )
-                        elif x[3] == "1a":  # idk?
-                            temp = (
-                                stream_table[idx][4]
-                                .replace("018002000080", "")
-                                .replace("0000", "")
-                            )
-                            try:
-                                stream_table[idx][4] = (
-                                    'Unknown: "'
-                                    + str(struct.unpack("<h", bytes.fromhex(temp))[0])
-                                    + '"'
-                                )
-                            except struct.error:
-                                stream_table[idx][4] = 'Unknown: "' + temp + '"'
-                            try:
-                                cat = struct.unpack("<h", bytes.fromhex(x[2]))[0]
-                                stream_table[idx][2] = 'Unknown: "' + str(cat) + '"'
-                            except struct.error:
-                                stream_table[idx][2] = 'Unknown: "' + x[2] + '"'
+                        # elif x[3] == "1a":  # idk?
+                        #     temp = (
+                        #         stream_table[idx][4]
+                        #         .replace("018002000080", "")
+                        #         .replace("0000", "")
+                        #     )
+                        #     try:
+                        #         stream_table[idx][4] = (
+                        #             'Unknown: "'
+                        #             + str(struct.unpack("<h", bytes.fromhex(temp))[0])
+                        #             + '"'
+                        #         )
+                        #     except struct.error:
+                        #         stream_table[idx][4] = 'Unknown: "' + temp + '"'
+                        #     try:
+                        #         cat = struct.unpack("<h", bytes.fromhex(x[2]))[0]
+                        #         stream_table[idx][2] = 'Unknown: "' + str(cat) + '"'
+                        #     except struct.error:
+                        #         stream_table[idx][2] = 'Unknown: "' + x[2] + '"'
                         #     # print(x)
                         #     try:
                         #         stream_table[idx][4] = (
@@ -169,7 +169,6 @@ with zipfile.ZipFile(path, "r") as z:
             #                     i += 1
             #             except IndexError:
             #                 pass
-
 
             print(stream_table)
             with open("output5.csv", "w") as f:
