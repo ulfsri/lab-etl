@@ -1,7 +1,5 @@
 import zipfile
 import csv
-import struct
-from datetime import datetime
 
 path = "tests/test_files/STA/Hyundai_KM8K_Carpet_STA_N2_10K_240711_R3.ngb-ss3"
 
@@ -21,7 +19,7 @@ def reemovNestings(l):
 with zipfile.ZipFile(path, "r") as z:
     for file in z.filelist:
         # if file.filename.endswith('.table'):
-        if file.filename == "Streams/stream_1.table":
+        if file.filename == "Streams/stream_2.table":
             with z.open(file.filename) as stream:
                 stream_table = stream.read()
                 stream_table = stream_table.split(
@@ -66,86 +64,86 @@ with zipfile.ZipFile(path, "r") as z:
                     reemovNestings(x)
                     # print(output)
                     stream_table[idx] = output
-                for idx, x in enumerate(stream_table):
-                    if x[0] == "0003":
-                        if x[3] == "1f":  # string
-                            stream_table[idx][4] = (
-                                'Text: "'
-                                + bytes.fromhex(x[4][8:]).decode(
-                                    "ascii", errors="ignore"
-                                )
-                                + '"'
-                            )
-                        elif x[3] == "04":  # float
-                            stream_table[idx][4] = (
-                                'Float32: "'
-                                + str(struct.unpack("<f", bytes.fromhex(x[4]))[0])
-                                + '"'
-                            )
-                        elif x[3] == "05":  # double
-                            stream_table[idx][4] = (
-                                'Float64: "'
-                                + str(struct.unpack("<d", bytes.fromhex(x[4]))[0])
-                                + '"'
-                            )
-                        elif x[3] == "03":  # int32
-                            if (
-                                (x[2] == "3e08")
-                                | (x[2] == "3518")
-                                | (x[2] == "fe1c")
-                                | (x[2] == "0718")
-                            ):  # datetime
-                                time = struct.unpack("<i", bytes.fromhex(x[4]))[0]
-                                dt = datetime.utcfromtimestamp(time).strftime(
-                                    "%Y-%m-%d %H:%M:%S"
-                                )
-                                stream_table[idx][4] = 'DateTime: "' + dt + '"'
-                            else:
-                                stream_table[idx][4] = (
-                                    'Int32: "'
-                                    + str(struct.unpack("<i", bytes.fromhex(x[4]))[0])
-                                    + '"'
-                                )
-                        elif x[3] == "02":  # int16
-                            stream_table[idx][4] = (
-                                'Int16: "'
-                                + str(struct.unpack("<h", bytes.fromhex(x[4]))[0])
-                                + '"'
-                            )
-                        elif x[3] == "10":  # bool
-                            stream_table[idx][4] = (
-                                'Bool: "'
-                                + str(struct.unpack("<?", bytes.fromhex(x[4]))[0])
-                                + '"'
-                            )
-                        # elif x[3] == "1a":  # idk?
-                        #     temp = (
-                        #         stream_table[idx][4]
-                        #         .replace("018002000080", "")
-                        #         .replace("0000", "")
-                        #     )
-                        #     try:
-                        #         stream_table[idx][4] = (
-                        #             'Unknown: "'
-                        #             + str(struct.unpack("<h", bytes.fromhex(temp))[0])
-                        #             + '"'
-                        #         )
-                        #     except struct.error:
-                        #         stream_table[idx][4] = 'Unknown: "' + temp + '"'
-                        #     try:
-                        #         cat = struct.unpack("<h", bytes.fromhex(x[2]))[0]
-                        #         stream_table[idx][2] = 'Unknown: "' + str(cat) + '"'
-                        #     except struct.error:
-                        #         stream_table[idx][2] = 'Unknown: "' + x[2] + '"'
-                        #     # print(x)
-                        #     try:
-                        #         stream_table[idx][4] = (
-                        #             'Unknown: "'
-                        #             + str(struct.unpack("<i", bytes.fromhex(x[4]))[0])
-                        #             + '"'
-                        #         )
-                        #     except struct.error:
-                        #         stream_table[idx][4] = 'Unknown: "' + x[4] + '"'
+                # for idx, x in enumerate(stream_table):
+                #     if x[0] == "0003":
+                #         if x[3] == "1f":  # string
+                #             stream_table[idx][4] = (
+                #                 'Text: "'
+                #                 + bytes.fromhex(x[4][8:]).decode(
+                #                     "ascii", errors="ignore"
+                #                 )
+                #                 + '"'
+                #             )
+                #         elif x[3] == "04":  # float
+                #             stream_table[idx][4] = (
+                #                 'Float32: "'
+                #                 + str(struct.unpack("<f", bytes.fromhex(x[4]))[0])
+                #                 + '"'
+                #             )
+                #         elif x[3] == "05":  # double
+                #             stream_table[idx][4] = (
+                #                 'Float64: "'
+                #                 + str(struct.unpack("<d", bytes.fromhex(x[4]))[0])
+                #                 + '"'
+                #             )
+                #         elif x[3] == "03":  # int32
+                #             if (
+                #                 (x[2] == "3e08")
+                #                 | (x[2] == "3518")
+                #                 | (x[2] == "fe1c")
+                #                 | (x[2] == "0718")
+                #             ):  # datetime
+                #                 time = struct.unpack("<i", bytes.fromhex(x[4]))[0]
+                #                 dt = datetime.utcfromtimestamp(time).strftime(
+                #                     "%Y-%m-%d %H:%M:%S"
+                #                 )
+                #                 stream_table[idx][4] = 'DateTime: "' + dt + '"'
+                #             else:
+                #                 stream_table[idx][4] = (
+                #                     'Int32: "'
+                #                     + str(struct.unpack("<i", bytes.fromhex(x[4]))[0])
+                #                     + '"'
+                #                 )
+                #         elif x[3] == "02":  # int16
+                #             stream_table[idx][4] = (
+                #                 'Int16: "'
+                #                 + str(struct.unpack("<h", bytes.fromhex(x[4]))[0])
+                #                 + '"'
+                #             )
+                #         elif x[3] == "10":  # bool
+                #             stream_table[idx][4] = (
+                #                 'Bool: "'
+                #                 + str(struct.unpack("<?", bytes.fromhex(x[4]))[0])
+                #                 + '"'
+                #             )
+                # elif x[3] == "1a":  # idk?
+                #     temp = (
+                #         stream_table[idx][4]
+                #         .replace("018002000080", "")
+                #         .replace("0000", "")
+                #     )
+                #     try:
+                #         stream_table[idx][4] = (
+                #             'Unknown: "'
+                #             + str(struct.unpack("<h", bytes.fromhex(temp))[0])
+                #             + '"'
+                #         )
+                #     except struct.error:
+                #         stream_table[idx][4] = 'Unknown: "' + temp + '"'
+                #     try:
+                #         cat = struct.unpack("<h", bytes.fromhex(x[2]))[0]
+                #         stream_table[idx][2] = 'Unknown: "' + str(cat) + '"'
+                #     except struct.error:
+                #         stream_table[idx][2] = 'Unknown: "' + x[2] + '"'
+                #     # print(x)
+                #     try:
+                #         stream_table[idx][4] = (
+                #             'Unknown: "'
+                #             + str(struct.unpack("<i", bytes.fromhex(x[4]))[0])
+                #             + '"'
+                #         )
+                #     except struct.error:
+                #         stream_table[idx][4] = 'Unknown: "' + x[4] + '"'
             # for idx, x in enumerate(stream_table):
             #     if len(x)>3:
             #         if x[3] == "1a":

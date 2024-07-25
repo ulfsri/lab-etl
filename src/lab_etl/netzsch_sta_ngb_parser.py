@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 import pyarrow as pa
 import re
 from itertools import tee, zip_longest
+import polars as pl
+from polars.exceptions import ShapeError
 
 END_FIELD = rb"\x01\x00\x00\x00\x02\x00\x01\x00\x00"
 TYPE_PREFIX = rb"\x17\xfc\xff\xff"
@@ -12,6 +14,22 @@ END_TABLE = rb"\x18\xfc\xff\xff\x03"
 TABLE_SEPARATOR = (
     rb"\x00\x00\x01\x00\x00\x00\x0c\x00\x17\xfc\xff\xff\x1a\x80\x01\x01\x80\x02\x00\x00"
 )
+column_map = {
+    "8d": "Time",
+    "8e": "Temperature",
+    "9c": "DSC",
+    "9e": "Purge Flow",
+    "90": "Protective Flow",
+    "87": "Sample Mass",
+    "30": "Furnace Temperature",
+    "32": "Furnace Power",
+    "33": "HFoilTemp",
+    "34": "uCModule",
+    "35": "Env Pressure",
+    "36": "Env Accel (x)",
+    "37": "Env Accel (y)",
+    "38": "Env Accel (z)",
+}
 
 
 def load_ngb_data(path: str) -> pa.Table:
@@ -153,8 +171,110 @@ def get_sta_metadata(path: str) -> dict[str, str | float | dict[str, str | float
                         for field_name, value in find_cal_constants(table):
                             print(f"{field_name}: {value}")
 
+            if file.filename == "Streams/stream_2.table":  # Primary data table
+                with z.open(file.filename) as stream:
+                    stream_table = stream.read()
+
+                    # Split into tables
+                    indices = [
+                        match.start() - 2
+                        for match in re.finditer(TABLE_SEPARATOR, stream_table)
+                    ]
+                    start, end = tee(indices)
+                    next(end)
+                    stream_table = [
+                        stream_table[i:j] for i, j in zip_longest(start, end)
+                    ]
+                    output = []
+                    output_polars = pl.DataFrame()
+                    for table in stream_table:
+                        if table[1:2] == b"\x17":  # header
+                            title = table[0:1].hex()
+                            title = column_map.get(title, title)
+                            if len(output) > 1:
+                                try:
+                                    output_polars = output_polars.with_columns(
+                                        pl.Series(name=title, values=output)
+                                    )
+                                except ShapeError:
+                                    print("error")
+                            output = []
+
+                        if table[1:2] == b"\x75":  # data
+                            START_DATA = b"\xa0\x01"
+                            END_DATA = b"\x01\x00\x00\x00\x02\x00\x01\x00\x00\x00\x03\x00\x18\xfc\xff\xff\x03\x80\x01"
+                            start_data = table.find(START_DATA) + 6
+                            data = table[start_data:]
+                            end_data = data.find(END_DATA)
+                            data = data[:end_data]
+                            data_type = table[start_data - 7 : start_data - 6]
+                            if data_type == b"\x05":
+                                n = 8
+                                data_table = [
+                                    struct.unpack("<d", data[i : i + n])[0]
+                                    for i in range(0, len(data), n)
+                                ]
+                                output.extend(data_table)
+                            elif data_type == b"\x04":
+                                n = 4
+                                data_table = [
+                                    struct.unpack("<f", data[i : i + n])[0]
+                                    for i in range(0, len(data), n)
+                                ]
+                                output.extend(data_table)
+
+            if file.filename == "Streams/stream_3.table":
+                with z.open(file.filename) as stream:
+                    stream_table = stream.read()
+
+                    # Split into tables
+                    indices = [
+                        match.start() - 2
+                        for match in re.finditer(TABLE_SEPARATOR, stream_table)
+                    ]
+                    start, end = tee(indices)
+                    next(end)
+                    stream_table = [
+                        stream_table[i:j] for i, j in zip_longest(start, end)
+                    ]
+                    output = []
+                    for table in stream_table:
+                        if table[22:25] == b"\x80\x22\x2b":  # header
+                            title = table[0:1].hex()
+                            title = column_map.get(title, title)
+                            output = []
+                        if table[1:2] == b"\x75":  # data
+                            START_DATA = b"\xa0\x01"
+                            END_DATA = b"\x01\x00\x00\x00\x02\x00\x01\x00\x00\x00\x03\x00\x18\xfc\xff\xff\x03\x80\x01"
+                            start_data = table.find(START_DATA) + 6
+                            data = table[start_data:]
+                            end_data = data.find(END_DATA)
+                            data = data[:end_data]
+                            data_type = table[start_data - 7 : start_data - 6]
+                            if data_type == b"\x05":
+                                n = 8
+                                data_table = [
+                                    struct.unpack("<d", data[i : i + n])[0]
+                                    for i in range(0, len(data), n)
+                                ]
+                                output.extend(data_table)
+                            elif data_type == b"\x04":
+                                n = 4
+                                data_table = [
+                                    struct.unpack("<f", data[i : i + n])[0]
+                                    for i in range(0, len(data), n)
+                                ]
+                                output.extend(data_table)
+                            try:
+                                output_polars = output_polars.with_columns(
+                                    pl.Series(name=title, values=output)
+                                )
+                            except ShapeError:
+                                pass
+                    output_polars.write_csv("output.csv")
+
 
 if __name__ == "__main__":
-    path = "tests/test_files/STA/Hyundai_KM8K_Carpet_STA_N2_10K_240711_R3.ngb-ss3"
-    # path = "tests/test_files/STA/IBHS_Shingle_102-B-5-1_Sample_2_STA_N2_30K_240716_R1.ngb-ss3"
+    # path = "tests/test_files/STA/Hyundai_KM8K_Carpet_STA_N2_10K_240711_R3.ngb-ss3"
+    path = "tests/test_files/STA/IBHS_Shingle_102-B-5-1_Sample_2_STA_N2_30K_240716_R1.ngb-ss3"
     load_ngb_data(path)
