@@ -147,14 +147,14 @@ def get_ftir_meta(file: OPUSFile) -> dict[Any, Any]:
 
 
 if __name__ == "__main__":
-    path = "tests/test_files/FTIR/Upper_Fiber_Cement_Board_3.0"
-    # path = "tests/test_files/FTIR/Bmore_Jacket_CSTM_Stripe_ATR_240517_R2.0"
+    # path = "tests/test_files/FTIR/Upper_Fiber_Cement_Board_3.0"
+    path = "tests/test_files/FTIR/Bmore_Jacket_CSTM_Stripe_ATR_240517_R2.0"
     # path = (
     #     "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.0"
     # )
     table = load_ftir_data(path)
     pq.write_table(
         table,
-        "tests/test_files/FTIR/Natural_Nylon_Sheet_Extruded_0.125_Trans_IS_R1_221212.parquet",
+        "tests/test_files/FTIR/Bmore_Jacket_CSTM_Stripe_ATR_240517_R2.parquet",
         compression="snappy",
     )
