@@ -37,7 +37,7 @@ Issues = "https://github.com/ulfsri/lab-etl/issues"
 Source = "https://github.com/ulfsri/lab-etl"
 
 [tool.hatch.version]
-path = "src/lab_etl/__about__.py"
+path = "src/labetl/__about__.py"
 
 [tool.hatch.envs.default]
 installer = "uv"
@@ -45,20 +45,20 @@ installer = "uv"
 [tool.hatch.envs.types]
 extra-dependencies = ["mypy>=1.10.0", "pre-commit>=3.7.1", "ruff>=0.4.9"]
 [tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/lab_etl tests}"
+check = "mypy --install-types --non-interactive {args:src/labetl tests}"
 
 [tool.hatch.envs.docs]
 extra-dependencies = ["mkdocs-material>=9.5.27", "mkdocstrings[python]>=0.25.1"]
 
 [tool.coverage.run]
-source_pkgs = ["lab_etl", "tests"]
+source_pkgs = ["labetl", "tests"]
 branch = true
 parallel = true
-omit = ["src/lab_etl/__about__.py"]
+omit = ["src/labetl/__about__.py"]
 
 [tool.coverage.paths]
-lab_etl = ["src/lab_etl", "*/lab-etl/src/lab_etl"]
-tests = ["tests", "*/lab-etl/tests"]
+lab_etl = ["src/labetl", "*/lab-etl/src/labetl"]
+tests = ["tests", "*/labetl/tests"]
 
 [tool.coverage.report]
 exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
