@@ -3,16 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "lab-etl"
+name = "labetl"
 dynamic = ["version"]
 description = 'ETL system for interpreting laboratory instrument data files and loading them into a standardized format while enforcing schema and retaining all metadata.'
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
 keywords = []
-authors = [
-  { name = "GraysonBellamy", email = "grayson.bellamy@ul.org" },
-]
+authors = [{ name = "GraysonBellamy", email = "grayson.bellamy@ul.org" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
@@ -45,35 +43,22 @@ path = "src/lab_etl/__about__.py"
 installer = "uv"
 
 [tool.hatch.envs.types]
-extra-dependencies = [
-  "mypy>=1.10.0",
-  "pre-commit>=3.7.1",
-  "ruff>=0.4.9",
-]
+extra-dependencies = ["mypy>=1.10.0", "pre-commit>=3.7.1", "ruff>=0.4.9"]
 [tool.hatch.envs.types.scripts]
 check = "mypy --install-types --non-interactive {args:src/lab_etl tests}"
 
 [tool.hatch.envs.docs]
-extra-dependencies = [
-  "mkdocs-material>=9.5.27",
-  "mkdocstrings[python]>=0.25.1"
-]
+extra-dependencies = ["mkdocs-material>=9.5.27", "mkdocstrings[python]>=0.25.1"]
 
 [tool.coverage.run]
 source_pkgs = ["lab_etl", "tests"]
 branch = true
 parallel = true
-omit = [
-  "src/lab_etl/__about__.py",
-]
+omit = ["src/lab_etl/__about__.py"]
 
 [tool.coverage.paths]
 lab_etl = ["src/lab_etl", "*/lab-etl/src/lab_etl"]
 tests = ["tests", "*/lab-etl/tests"]
 
 [tool.coverage.report]
-exclude_lines = [
-  "no cov",
-  "if __name__ == .__main__.:",
-  "if TYPE_CHECKING:",
-]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
