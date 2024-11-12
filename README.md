@@ -1,7 +1,7 @@
 # lab-etl
 
-[![PyPI - Version](https://img.shields.io/pypi/v/lab-etl.svg)](https://pypi.org/project/lab-etl)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/lab-etl.svg)](https://pypi.org/project/lab-etl)
+[![PyPI - Version](https://img.shields.io/pypi/v/labetl.svg)](https://pypi.org/project/labetl)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/labetl.svg)](https://pypi.org/project/labetl)
 
 This repository contains the codebase for the ETL scripts for loading laboratory instrument data files into our database. In particular, data files from a variety of formats are converted to Apache Parquet files which provides a standardized interface for access and enforces schema. Of notable importance is the inclusion of metadata in these files. Metadata is extracted from the original test files and stored as JSON-like metadata within the Parquet files in either file-wide or column-specific, as appropriate. Depending on the type of file (from which type of instrument) the keys will be standardized for common fields. Additional metadata that may be instrument-specific will be stored as additional metadata but is not guaranteed to be standardized in any meaningful way. However, the names of these fields may be slightly altered to provide clarity to the user as to what they might represent.
 
@@ -17,9 +17,9 @@ Development currently focuses on files and instruments of interest to FSRI's Mat
 ## Installation
 
 ```console
-pip install lab-etl
+pip install labetl
 ```
 
 ## License
 
-`lab-etl` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
+`labetl` is distributed under the terms of the [MIT](https://spdx.org/licenses/MIT.html) license.
