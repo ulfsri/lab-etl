@@ -1,8 +1,12 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "labetl"
-dynamic = ["version"]
 description = 'ETL system for interpreting laboratory instrument data files and loading them into a standardized format while enforcing schema and retaining all metadata.'
 readme = "README.md"
+version = "0.0.3"
 requires-python = ">=3.10"
 keywords = []
 authors = [{ name = "GraysonBellamy", email = "gbellamy@umd.edu" }]
