@@ -6,7 +6,7 @@ import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from lab_etl.util import detect_encoding, get_hash, set_metadata
+from labetl.util import detect_encoding, get_hash, set_metadata
 
 
 def load_hfm_data(path):

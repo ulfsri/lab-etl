@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 from dateutil.parser import parse
 from pyarrow import csv as pacsv
 
-from lab_etl.util import detect_encoding, get_hash, set_metadata
+from labetl.util import detect_encoding, get_hash, set_metadata
 
 
 def load_mcc_data(path: str) -> pa.Table:

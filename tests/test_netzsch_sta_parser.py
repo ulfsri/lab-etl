@@ -4,7 +4,7 @@ import unittest
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from lab_etl.netzsch_sta_parser import (
+from labetl.netzsch_sta_parser import (
     find_sta_header,
     get_sta_metadata,
     load_sta_data,

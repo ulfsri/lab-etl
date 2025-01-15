@@ -7,7 +7,7 @@ import re
 from itertools import tee, zip_longest
 import polars as pl
 from polars.exceptions import ShapeError
-from lab_etl.util import get_hash, set_metadata
+from labetl.util import get_hash, set_metadata
 
 END_FIELD = rb"\x01\x00\x00\x00\x02\x00\x01\x00\x00"
 TYPE_PREFIX = rb"\x17\xfc\xff\xff"
