@@ -4,7 +4,7 @@ import polars as pl
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from lab_etl.util import get_hash, set_metadata
+from labetl.util import get_hash, set_metadata
 
 
 def load_cone_data(path: str) -> pa.Table:

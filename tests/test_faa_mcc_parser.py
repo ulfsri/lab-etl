@@ -4,7 +4,7 @@ import unittest
 
 import pyarrow as pa
 import pyarrow.parquet as pq
-from lab_etl.faa_mcc_parser import (
+from labetl.faa_mcc_parser import (
     find_mcc_header,
     get_mcc_metadata,
     load_mcc_data,

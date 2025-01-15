@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 from brukeropus import read_opus
 from brukeropus.file import OPUSFile, get_param_label
 
-from lab_etl.util import get_hash, set_metadata
+from labetl.util import get_hash, set_metadata
 
 
 def load_ftir_data(file_path: str) -> pa.Table:

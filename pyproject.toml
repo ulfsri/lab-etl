@@ -1,21 +1,14 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
 name = "labetl"
 dynamic = ["version"]
 description = 'ETL system for interpreting laboratory instrument data files and loading them into a standardized format while enforcing schema and retaining all metadata.'
 readme = "README.md"
-requires-python = ">=3.8"
-license = "MIT"
+requires-python = ">=3.10"
 keywords = []
-authors = [{ name = "GraysonBellamy", email = "grayson.bellamy@ul.org" }]
+authors = [{ name = "GraysonBellamy", email = "gbellamy@umd.edu" }]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -24,31 +17,25 @@ classifiers = [
 ]
 dependencies = [
   "python-magic>=0.4.27",
-  "pyarrow>=16.1.0",
+  "pyarrow>=18.1.0",
   "python-dateutil>=2.9.0",
   "brukeropus>=1.1.0",
-  "polars>=1.1.0",
-  "fastexcel>=0.10.4",
+  "polars>=1.19.0",
+  "fastexcel>=0.12.1",
+  "numpy>=2.2.1",
 ]
+
+[project.optional-dependencies]
+docs = [
+  "mkdocs-material>=9.5.49", 
+  "mkdocstrings[python]>=0.27.0",
+]
+
 
 [project.urls]
 Documentation = "https://github.com/ulfsri/lab-etl#readme"
 Issues = "https://github.com/ulfsri/lab-etl/issues"
 Source = "https://github.com/ulfsri/lab-etl"
-
-[tool.hatch.version]
-path = "src/labetl/__about__.py"
-
-[tool.hatch.envs.default]
-installer = "uv"
-
-[tool.hatch.envs.types]
-extra-dependencies = ["mypy>=1.10.0", "pre-commit>=3.7.1", "ruff>=0.4.9"]
-[tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/labetl tests}"
-
-[tool.hatch.envs.docs]
-extra-dependencies = ["mkdocs-material>=9.5.27", "mkdocstrings[python]>=0.25.1"]
 
 [tool.coverage.run]
 source_pkgs = ["labetl", "tests"]

@@ -7,7 +7,7 @@ import pyarrow.parquet as pq
 from dateutil.parser import parse
 from pyarrow import csv as pacsv
 
-from lab_etl.util import detect_encoding, set_metadata, get_hash
+from labetl.util import detect_encoding, set_metadata, get_hash
 
 UNITS = (
     "/°C",
